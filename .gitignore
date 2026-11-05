@@ -33,3 +33,20 @@ google-services.json
 
 # Android Profiling
 *.hprof
+# Signing keys - never commit these
+*.jks
+*.keystore
+*.pk8
+*.pem
+
+# Local machine settings
+local.properties
+.idea/
+*.iml
+
+# Claude Code personal settings (keep CLAUDE.md itself committed)
+.claude/settings.local.json
+
+# OS clutter
+.DS_Store
+Thumbs.db
