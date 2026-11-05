@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <string name="app_name">Screen time</string>
+    <string name="home_title">Screen time and parental controls</string>
+    <string name="home_placeholder_heading">Coming soon</string>
+    <string name="home_placeholder_body">Open Screen Time is being built. Usage tracking, app limits, downtime and the screen time PIN will appear here in upcoming test builds.</string>
+    <string name="home_privacy_note">All screen time data stays on this phone. This app has no internet access.</string>
+</resources>

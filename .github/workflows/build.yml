@@ -1,0 +1,78 @@
+# Builds the app, runs all checks, and attaches a test APK to every run.
+name: Build
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+# Cancel an older run on the same branch when a newer push arrives.
+concurrency:
+  group: build-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      # Official Gradle action: caches downloads and checks that the
+      # Gradle wrapper in the repo hasn't been tampered with.
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # Optional: a fixed debug key lets testers install each new build over
+      # the old one without uninstalling. See README "Test build signing key".
+      - name: Use shared debug signing key (if configured)
+        env:
+          DEBUG_KEYSTORE_BASE64: ${{ secrets.DEBUG_KEYSTORE_BASE64 }}
+        run: |
+          if [ -n "$DEBUG_KEYSTORE_BASE64" ]; then
+            echo "$DEBUG_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/debug.keystore"
+            echo "DEBUG_KEYSTORE_PATH=$RUNNER_TEMP/debug.keystore" >> "$GITHUB_ENV"
+            echo "Using the shared debug key."
+          else
+            echo "No DEBUG_KEYSTORE_BASE64 secret; using a temporary debug key."
+          fi
+
+      # lintDebug: code checks. verifyRoborazziDebug: runs all unit tests and
+      # compares screenshots to the committed ones. assembleDebug: the APK.
+      - name: Lint, test and build
+        run: ./gradlew lintDebug verifyRoborazziDebug assembleDebug
+
+      - name: Upload test APK
+        uses: actions/upload-artifact@v7
+        with:
+          name: open-screen-time-debug-${{ github.sha }}
+          path: app/build/outputs/apk/debug/app-debug.apk
+          if-no-files-found: error
+
+      # When screenshots don't match, this shows the old, new and difference.
+      - name: Upload screenshot differences
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: screenshot-differences
+          path: app/build/outputs/roborazzi
+          if-no-files-found: ignore
+
+      - name: Upload test and lint reports
+        if: failure()
+        uses: actions/upload-artifact@v7
+        with:
+          name: reports
+          path: app/build/reports
+          if-no-files-found: ignore

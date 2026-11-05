@@ -44,7 +44,7 @@ It is designed to ship as a **privileged system app** built into a ROM, with Gra
 
 - Set a daily time limit for any app, in 15-minute steps, up to 23h 45m.
 - Optionally use different limits on weekdays and weekends.
-- Show a notification 5 minutes before a limit is reached.
+- Show a notification 5 minutes before a limit is reached. *(Phase 2: needs background usage monitoring.)*
 - When the limit is reached, the app is blocked (see **Limit behavior**).
 - Limits reset at midnight local time.
 
@@ -52,7 +52,7 @@ It is designed to ship as a **privileged system app** built into a ROM, with Gra
 
 - Set a recurring time window, such as 9:00 PM–7:00 AM, during which all apps except **always allowed** apps are blocked.
 - Optionally use different schedules per day of the week.
-- Show a notification 5 minutes before downtime starts.
+- Show a notification 5 minutes before downtime starts. *(Phase 2.)*
 
 ### 4. Always allowed apps
 
@@ -141,17 +141,20 @@ These are always enforced once a PIN is set, regardless of the options above:
 
 - Language: Kotlin.
 - UI: Jetpack Compose, following Material 3 and matching the look of AOSP Settings.
-- Minimum Android version: **14**. Target the newest Android version GrapheneOS ships.
+- Minimum Android version: **14** (API 34). Target the newest Android version GrapheneOS ships, currently **Android 17 (API 37)**.
+- App ID (package name): `org.openscreentime`. This must not change once builds are in use.
 - License: Apache 2.0.
 - Use existing Android system APIs, such as usage stats, package suspension, and user restrictions, rather than modifying the Android framework.
 - Any version-specific behavior is handled in code, not with separate branches.
 - Must build from the command line with Gradle, and through GitHub Actions on every push.
 - Include automated tests for limit, downtime, and PIN logic, plus screenshot tests for the main screens so the UI can be reviewed without a phone.
+- Screenshot tests use **Roborazzi** with **Robolectric**, both test-only libraries that are never included in the app. Robolectric runs tests on Android 16 (API 36) until it fully supports Android 17.
+- GitHub Actions builds a debug APK for every push and pull request. Builds can use a fixed debug signing key stored as a GitHub secret, so testers can install new builds over old ones. Never commit the key.
 
 ## Development phases
 
-1. **App foundation (no special privileges).** Usage dashboard, limits and downtime screens, PIN setup, and block screens. Built and tested as a regular app. GitHub Actions produces an APK for each change.
-2. **Enforcement.** App suspension, restrictions, and self-protection, tested in device-owner mode on a test phone.
+1. **App foundation (no special privileges).** Usage dashboard, limits and downtime screens, PIN setup, and block screens. Built and tested as a regular app. GitHub Actions produces an APK for each change. A regular app can't block other apps, so block screens are only shown through a preview button in this phase. The rules that decide what to block are built and tested here, behind the enforcement interface.
+2. **Enforcement.** App suspension, restrictions, and self-protection, tested in device-owner mode on a test phone. Also the 5-minute warning notifications before a limit or downtime, which need background usage monitoring.
 3. **System app integration.** Privileged-permission files, build integration for GrapheneOS, and Settings integration. Tested in a full GrapheneOS build.
 4. **Polish and proposal.** Documentation, a test report, and a proposal to the GrapheneOS team.
 
