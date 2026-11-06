@@ -1,6 +1,7 @@
 package org.openscreentime.ui
 
 import org.openscreentime.data.AppSettings
+import org.openscreentime.blocking.LimitMode
 import org.openscreentime.data.HistoryLength
 import org.openscreentime.ui.dashboard.Dashboard
 
@@ -35,6 +36,9 @@ data class AppUiState(
 ) {
     val historyLength: HistoryLength
         get() = settings?.historyLength ?: HistoryLength.Default
+
+    val limitMode: LimitMode
+        get() = settings?.limitMode ?: LimitMode.Default
 
     val screen: AppScreen
         get() = when {

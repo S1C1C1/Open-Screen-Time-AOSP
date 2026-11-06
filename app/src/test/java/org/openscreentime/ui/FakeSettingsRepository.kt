@@ -22,4 +22,8 @@ class FakeSettingsRepository(initial: AppSettings = AppSettings()) : SettingsRep
     override suspend fun setHistoryLength(length: HistoryLength) {
         state.value = state.value.copy(historyLength = length)
     }
+
+    override suspend fun setLimitMode(mode: org.openscreentime.blocking.LimitMode) {
+        state.value = state.value.copy(limitMode = mode)
+    }
 }

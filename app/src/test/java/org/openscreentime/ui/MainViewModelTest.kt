@@ -13,6 +13,10 @@ import org.junit.runner.RunWith
 import org.openscreentime.data.AppSettings
 import org.openscreentime.data.HistoryLength
 import org.openscreentime.allowed.AllowedApp
+import org.openscreentime.blocking.BlockDecision
+import org.openscreentime.blocking.BlockReason
+import org.openscreentime.blocking.LimitMode
+import org.openscreentime.blocking.UnlockDuration
 import org.openscreentime.allowed.AllowedRole
 import org.openscreentime.downtime.DowntimeSchedule
 import org.openscreentime.downtime.DowntimeStatus
@@ -47,6 +51,7 @@ class MainViewModelTest {
     private val limits = FakeLimitRepository()
     private val downtime = FakeDowntimeRepository()
     private val allowed = FakeAlwaysAllowedRepository()
+    private val overrides = FakeOverrideRepository()
     private var installed = listOf(
         InstalledApp("chat", "Chat"),
         InstalledApp("mail", "Mail"),
@@ -64,6 +69,7 @@ class MainViewModelTest {
         downtimeRepository = downtime,
         alwaysAllowedRepository = allowed,
         alwaysAllowedPolicy = testAlwaysAllowedPolicy(),
+        overrideRepository = overrides,
         clock = clock,
         firstDayOfWeek = DayOfWeek.SUNDAY,
         ioDispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
@@ -590,4 +596,162 @@ class MainViewModelTest {
         assertTrue(runBlocking { viewModel.isAlwaysAllowed("dialer").first() })
         assertFalse(runBlocking { viewModel.isAlwaysAllowed("video").first() })
     }
+
+    // --- Block screens (the clock is Thursday 12:00 UTC) ---
+
+    private val noon = java.time.Instant.parse("2026-11-05T12:00:00Z")
+
+    private fun MainViewModel.preview(reason: BlockReason = BlockReason.LimitReached, pkg: String? = "video") {
+        previewBlockScreen(pkg, reason)
+        currentState()
+    }
+
+    @Test
+    fun previewUsesTheCurrentModeAndApp() {
+        val viewModel = newViewModel()
+        viewModel.preview()
+        val ui = viewModel.blockScreenUi.value!!
+        assertEquals("Label of video", ui.label)
+        assertEquals(LimitMode.Strict, ui.mode)
+        assertEquals(today.plusDays(1).atStartOfDay(zone), ui.blockedUntil)
+    }
+
+    @Test
+    fun graceGivesOneMoreMinuteOncePerDay() {
+        settings.state(LimitMode.Grace)
+        val viewModel = newViewModel()
+        viewModel.preview()
+        assertTrue(viewModel.blockScreenUi.value!!.graceAvailable)
+
+        viewModel.blockOneMoreMinute()
+        viewModel.currentState()
+        assertNull(viewModel.blockScreenUi.value)
+        assertEquals(noon.plusSeconds(60), overrides.saved.value["video"]!!.allowedUntil)
+        assertEquals(today, overrides.saved.value["video"]!!.graceUsedOn)
+
+        viewModel.preview()
+        assertFalse(viewModel.blockScreenUi.value!!.graceAvailable)
+    }
+
+    @Test
+    fun reminderCanBeIgnoredForFifteenMinutes() {
+        settings.state(LimitMode.Reminder)
+        val viewModel = newViewModel()
+        viewModel.preview()
+        viewModel.blockIgnore()
+        viewModel.currentState()
+        assertEquals(noon.plusSeconds(15 * 60), overrides.saved.value["video"]!!.allowedUntil)
+    }
+
+    @Test
+    fun withAPinMoreTimeNeedsThePinThenAChoice() {
+        runBlocking { pinManager.setInitialPin(pin("4826")) }
+        val viewModel = newViewModel()
+        viewModel.preview()
+        viewModel.blockEnterPin()
+        viewModel.currentState()
+        assertFalse(viewModel.blockScreenUi.value!!.choosingUnlock)
+
+        viewModel.enterPin("4826")
+        assertTrue(viewModel.blockScreenUi.value!!.choosingUnlock)
+
+        viewModel.blockUnlock(UnlockDuration.OneHour)
+        viewModel.currentState()
+        assertEquals(noon.plusSeconds(3600), overrides.saved.value["video"]!!.allowedUntil)
+        assertNull(viewModel.blockScreenUi.value)
+    }
+
+    @Test
+    fun wrongPinGivesNoMoreTime() {
+        runBlocking { pinManager.setInitialPin(pin("4826")) }
+        val viewModel = newViewModel()
+        viewModel.preview()
+        viewModel.blockEnterPin()
+        viewModel.currentState()
+        viewModel.enterPin("0000")
+        assertFalse(viewModel.blockScreenUi.value!!.choosingUnlock)
+        assertTrue(overrides.saved.value.isEmpty())
+    }
+
+    @Test
+    fun withoutAPinTheChoiceShowsStraightAway() {
+        val viewModel = newViewModel()
+        viewModel.preview()
+        viewModel.blockEnterPin()
+        viewModel.currentState()
+        assertTrue(viewModel.blockScreenUi.value!!.choosingUnlock)
+    }
+
+    @Test
+    fun restOfDayMeansMidnightForALimitAndTheEndForDowntime() {
+        downtime.schedule.value = DowntimeSchedule(enabled = true)
+        val viewModel = newViewModel()
+
+        viewModel.preview(BlockReason.LimitReached)
+        viewModel.blockEnterPin()
+        viewModel.currentState()
+        viewModel.blockUnlock(UnlockDuration.RestOfDay)
+        viewModel.currentState()
+        assertEquals(today.plusDays(1).atStartOfDay(zone).toInstant(), overrides.saved.value["video"]!!.allowedUntil)
+
+        viewModel.preview(BlockReason.Downtime, pkg = "maps")
+        assertEquals(today.plusDays(1).atTime(7, 0).atZone(zone), viewModel.blockScreenUi.value!!.blockedUntil)
+        viewModel.blockEnterPin()
+        viewModel.currentState()
+        viewModel.blockUnlock(UnlockDuration.RestOfDay)
+        viewModel.currentState()
+        assertEquals(today.plusDays(1).atTime(7, 0).atZone(zone).toInstant(), overrides.saved.value["maps"]!!.allowedUntil)
+    }
+
+    @Test
+    fun previewWithoutAnAppSavesNothing() {
+        val viewModel = newViewModel()
+        viewModel.preview(BlockReason.Downtime, pkg = null)
+        assertNull(viewModel.blockScreenUi.value!!.label)
+        viewModel.blockIgnore()
+        viewModel.currentState()
+        assertTrue(overrides.saved.value.isEmpty())
+    }
+
+    @Test
+    fun leavingTheAppClosesTheBlockScreen() {
+        val viewModel = newViewModel()
+        viewModel.preview()
+        viewModel.onAppHidden()
+        assertNull(viewModel.blockScreenUi.value)
+    }
+
+    @Test
+    fun blockDecisionReflectsUsageLimitAndExtraTime() {
+        usage.usageByDay.value = mapOf(today to listOf(AppUsageTime("video", Duration.ofMinutes(70))))
+        runBlocking { limits.save(AppLimit("video", Duration.ofHours(1))) }
+        val viewModel = newViewModel()
+
+        fun decision(): BlockDecision {
+            var result: BlockDecision? = null
+            val job = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main.immediate).launch {
+                viewModel.blockDecision("video").collect { result = it }
+            }
+            shadowOf(Looper.getMainLooper()).idle()
+            job.cancel()
+            return result!!
+        }
+
+        assertTrue(decision() is BlockDecision.Blocked)
+        runBlocking { overrides.allowUntil("video", noon.plusSeconds(600)) }
+        assertEquals(BlockDecision.AllowedUntil(noon.plusSeconds(600)), decision())
+    }
+
+    @Test
+    fun changingTheModeNeedsThePinOnceSet() {
+        runBlocking { pinManager.setInitialPin(pin("4826")) }
+        val viewModel = newViewModel()
+        viewModel.setLimitMode(LimitMode.Reminder)
+        viewModel.currentState()
+        assertEquals(LimitMode.Strict, viewModel.currentState().limitMode)
+        viewModel.enterPin("4826")
+        assertEquals(LimitMode.Reminder, viewModel.currentState().limitMode)
+    }
+
+    private fun FakeSettingsRepository.state(mode: LimitMode) = runBlocking { setLimitMode(mode) }
 }

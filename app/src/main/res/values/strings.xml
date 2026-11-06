@@ -166,6 +166,38 @@
     <string name="allowed_footnote">The screen time app itself is never blocked, so the PIN can always be entered.</string>
     <string name="limits_always_allowed_note">This app is always allowed, so its limit won\'t block it.</string>
 
+    <!-- When time is up (limit mode) -->
+    <string name="mode_title">When time is up</string>
+    <string name="mode_strict">Strict</string>
+    <string name="mode_strict_description">The app stays blocked. Only the PIN gives more time.</string>
+    <string name="mode_grace">Grace</string>
+    <string name="mode_grace_description">Allows one more minute once per app each day. After that, the PIN is needed.</string>
+    <string name="mode_reminder">Reminder</string>
+    <string name="mode_reminder_description">Shows a reminder that can be ignored for 15 minutes at a time.</string>
+
+    <!-- Block screen -->
+    <string name="block_preview_banner">Preview. In this test build, apps aren\'t really blocked yet.</string>
+    <string name="block_this_app">This app</string>
+    <string name="block_limit_title">Time limit reached</string>
+    <string name="block_limit_body">You\'ve reached today\'s limit for %1$s. It can be used again tomorrow.</string>
+    <string name="block_downtime_title">Downtime</string>
+    <string name="block_downtime_body">%1$s isn\'t available until %2$s.</string>
+    <string name="block_reminder_note">You can ignore this. It will remind you again in 15 minutes.</string>
+    <string name="block_close">Close app</string>
+    <string name="block_one_more_minute">One more minute</string>
+    <string name="block_ignore">Ignore for 15 minutes</string>
+    <string name="block_enter_pin">Enter PIN for more time</string>
+    <string name="unlock_title">More time for %1$s</string>
+    <string name="unlock_15_minutes">15 minutes</string>
+    <string name="unlock_1_hour">1 hour</string>
+    <string name="unlock_rest_of_day">Rest of the day</string>
+    <string name="unlock_until_downtime_ends">Until downtime ends</string>
+    <string name="block_preview">Preview block screen</string>
+    <string name="status_allowed">Right now: allowed</string>
+    <string name="status_unlocked">Right now: extra time until %1$s</string>
+    <string name="status_blocked_limit">Right now: would be blocked, limit reached</string>
+    <string name="status_blocked_downtime">Right now: would be blocked by downtime</string>
+
     <string name="cancel">Cancel</string>
     <string name="home_privacy_note">All screen time data stays on this phone. This app has no internet access.</string>
 </resources>

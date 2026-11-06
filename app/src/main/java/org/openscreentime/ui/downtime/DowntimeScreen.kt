@@ -71,6 +71,7 @@ fun DowntimeScreen(
     onBack: () -> Unit,
     onSetPinClick: () -> Unit,
     modifier: Modifier = Modifier,
+    onPreviewBlock: () -> Unit = {},
 ) {
     val resources = LocalResources.current
     val locale = LocalConfiguration.current.locales[0]
@@ -135,6 +136,9 @@ fun DowntimeScreen(
                         )
                     }
                 }
+            }
+            androidx.compose.material3.OutlinedButton(onClick = onPreviewBlock) {
+                Text(stringResource(R.string.block_preview))
             }
             FootnoteText(stringResource(R.string.downtime_blocking_coming))
         }

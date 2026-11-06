@@ -1,6 +1,7 @@
 package org.openscreentime.data
 
 import kotlinx.coroutines.flow.Flow
+import org.openscreentime.blocking.LimitMode
 
 /** How long usage history is kept. Counts today as one day. */
 enum class HistoryLength(val days: Int) {
@@ -22,6 +23,7 @@ data class AppSettings(
     /** True when the user has chosen to turn on screen time tracking. */
     val trackingEnabled: Boolean = false,
     val historyLength: HistoryLength = HistoryLength.Default,
+    val limitMode: LimitMode = LimitMode.Default,
 )
 
 /** Reads and saves [AppSettings]. An interface so tests can use a fake. */
@@ -34,4 +36,6 @@ interface SettingsRepository {
     suspend fun setTrackingEnabled(enabled: Boolean)
 
     suspend fun setHistoryLength(length: HistoryLength)
+
+    suspend fun setLimitMode(mode: LimitMode)
 }

@@ -1,5 +1,6 @@
 package org.openscreentime.ui.appdetail
 
+import android.text.format.DateFormat
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -8,14 +9,19 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
 import androidx.compose.material3.MaterialTheme
+import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.unit.dp
 import org.openscreentime.R
+import org.openscreentime.blocking.BlockDecision
+import org.openscreentime.blocking.BlockReason
 import org.openscreentime.ui.components.AppIcon
 import org.openscreentime.ui.components.FootnoteText
 import org.openscreentime.ui.components.SettingsCard
@@ -24,6 +30,7 @@ import org.openscreentime.ui.components.WeekBarChart
 import org.openscreentime.ui.dashboard.AppDetail
 import org.openscreentime.ui.format.formatDuration
 import org.openscreentime.ui.format.formatLimit
+import org.openscreentime.ui.format.formatTime
 
 /** One app's usage this week and its limit. */
 @Composable
@@ -32,6 +39,8 @@ fun AppDetailScreen(
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
     onLimitClick: () -> Unit = {},
+    decision: BlockDecision? = null,
+    onPreviewBlock: () -> Unit = {},
 ) {
     val resources = LocalResources.current
     SettingsScaffold(title = detail?.label.orEmpty(), onBack = onBack, modifier = modifier) {
@@ -95,6 +104,30 @@ fun AppDetailScreen(
                 colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceBright),
             )
         }
+        if (decision != null) {
+            SettingsCard {
+                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(blockStatusText(decision), style = MaterialTheme.typography.bodyMedium)
+                    OutlinedButton(onClick = onPreviewBlock) { Text(stringResource(R.string.block_preview)) }
+                }
+            }
+        }
         if (detail.limit != null) FootnoteText(stringResource(R.string.app_limit_blocking_coming))
     }
+}
+
+@Composable
+private fun blockStatusText(decision: BlockDecision): String = when (decision) {
+    BlockDecision.Allowed -> stringResource(R.string.status_allowed)
+    is BlockDecision.AllowedUntil -> stringResource(
+        R.string.status_unlocked,
+        formatTime(
+            decision.until.atZone(java.time.ZoneId.systemDefault()).toLocalTime(),
+            LocalConfiguration.current.locales[0],
+            DateFormat.is24HourFormat(LocalContext.current),
+        ),
+    )
+    is BlockDecision.Blocked -> stringResource(
+        if (decision.reason == BlockReason.Downtime) R.string.status_blocked_downtime else R.string.status_blocked_limit,
+    )
 }

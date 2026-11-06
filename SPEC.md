@@ -84,7 +84,14 @@ When a limit or downtime blocks an app, the person who set the limit chooses one
 | **Grace** | User may tap "One more minute" once per app per day; after that, the PIN is required. |
 | **Reminder** | A warning screen appears, but the user can choose to ignore it and continue. Intended for adults who want a nudge rather than a lock. |
 
-When the PIN is entered on the block screen, the user can choose to unlock for 15 minutes, 1 hour, or the rest of the day.
+When the PIN is entered on the block screen, the user can choose to unlock for 15 minutes, 1 hour, or the rest of the day. For downtime, "rest of the day" means until downtime ends.
+
+- One mode applies to the whole phone, to both limits and downtime. It is set under **When time is up**, defaults to **Strict**, and changing it needs the PIN once one is set.
+- In Reminder mode, the button reads **Ignore for 15 minutes**; after 15 minutes the reminder appears again.
+- "One more minute" (Grace) is counted per app per day and resets at midnight.
+- When both apply, downtime is shown rather than the limit. Always allowed apps are never blocked.
+- Extra time (PIN unlock, one more minute, ignored reminder) uses the phone's clock; the date and time restriction in phase 2 stops it being stretched by changing the clock.
+- If no PIN is set, "Enter PIN for more time" goes straight to the choice of how long, since nothing is locked yet.
 
 ### 6. Restrictions
 
@@ -173,7 +180,7 @@ These are always enforced once a PIN is set, regardless of the options above:
 
 ## Development phases
 
-1. **App foundation (no special privileges).** Usage dashboard, limits and downtime screens, PIN setup, and block screens. Built and tested as a regular app. GitHub Actions produces an APK for each change. A regular app can't block other apps, so block screens are only shown through a preview button in this phase. The rules that decide what to block are built and tested here, behind the enforcement interface.
+1. **App foundation (no special privileges).** Usage dashboard, limits and downtime screens, PIN setup, and block screens. Built and tested as a regular app. GitHub Actions produces an APK for each change. A regular app can't block other apps, so block screens are only shown through a **Preview block screen** button (on each app's page and the Downtime screen) in this phase. The rules that decide what to block are built and tested here. Blocking goes through an `AppBlocker` interface; phase 1 uses a version that does nothing, and phase 2 adds real ones for system app mode and device-owner mode.
 2. **Enforcement.** App suspension, restrictions, and self-protection, tested in device-owner mode on a test phone. Also the 5-minute warning notifications before a limit or downtime, which need background usage monitoring.
 3. **System app integration.** Privileged-permission files, build integration for GrapheneOS, and Settings integration. Tested in a full GrapheneOS build.
 4. **Polish and proposal.** Documentation, a test report, and a proposal to the GrapheneOS team.

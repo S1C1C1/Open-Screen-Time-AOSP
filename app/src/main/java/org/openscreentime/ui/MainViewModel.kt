@@ -19,6 +19,7 @@ import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
+import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withContext
 import org.openscreentime.OpenScreenTimeApplication
@@ -27,7 +28,16 @@ import org.openscreentime.data.SettingsRepository
 import org.openscreentime.allowed.AllowedApp
 import org.openscreentime.allowed.AlwaysAllowedPolicy
 import org.openscreentime.allowed.AlwaysAllowedRepository
+import org.openscreentime.blocking.AppOverride
+import org.openscreentime.blocking.BlockDecision
+import org.openscreentime.blocking.BlockReason
+import org.openscreentime.blocking.BlockRules
+import org.openscreentime.blocking.LimitMode
+import org.openscreentime.blocking.OverrideRepository
+import org.openscreentime.blocking.UnlockDuration
 import org.openscreentime.downtime.DowntimeRepository
+import org.openscreentime.downtime.DowntimeWindow
+import org.openscreentime.ui.block.BlockScreenUi
 import org.openscreentime.ui.allowed.AllowedAppUi
 import org.openscreentime.downtime.DowntimeSchedule
 import org.openscreentime.downtime.DowntimeStatus
@@ -47,6 +57,7 @@ import org.openscreentime.usage.AppLabels
 import org.openscreentime.usage.UsageAccessChecker
 import org.openscreentime.usage.UsageRepository
 import java.time.Clock
+import java.time.Duration
 import java.time.DayOfWeek
 import java.time.LocalDate
 import java.time.temporal.WeekFields
@@ -65,6 +76,7 @@ class MainViewModel(
     private val downtimeRepository: DowntimeRepository,
     private val alwaysAllowedRepository: AlwaysAllowedRepository,
     private val alwaysAllowedPolicy: AlwaysAllowedPolicy,
+    private val overrideRepository: OverrideRepository,
     private val clock: Clock = Clock.systemDefaultZone(),
     /** First day of the week, from the phone's region (Sunday in the US, Monday in most of Europe). */
     private val firstDayOfWeek: DayOfWeek = WeekFields.of(Locale.getDefault()).firstDayOfWeek,
@@ -202,6 +214,7 @@ class MainViewModel(
     fun onAppHidden() {
         settingsUnlocked.value = false
         pinFlow.cancel()
+        blockScreen.value = null
     }
 
     /**
@@ -277,6 +290,121 @@ class MainViewModel(
             withContext(ioDispatcher) { alwaysAllowedPolicy.isAlwaysAllowed(packageName, config) }
         }
 
+    // --- Blocking ---
+
+    private val blockScreen = MutableStateFlow<BlockScreenUi?>(null)
+
+    /** The block screen preview, or null when it's closed. */
+    val blockScreenUi: StateFlow<BlockScreenUi?> = blockScreen
+
+    /** Whether [packageName] would be blocked right now, and why. */
+    fun blockDecision(packageName: String): Flow<BlockDecision> = combine(
+        combine(today, now) { day, instant -> day to instant }.flatMapLatest { (day, instant) ->
+            usageRepository.usageForDay(day).map { apps -> instant to (apps.firstOrNull { it.packageName == packageName }?.time ?: Duration.ZERO) }
+        },
+        limitRepository.limitFor(packageName),
+        downtimeRepository.schedule,
+        combine(alwaysAllowedRepository.config, overrideRepository.overrideFor(packageName), ::Pair),
+        settingsRepository.settings,
+    ) { (instant, used), limit, schedule, (allowedConfig, override), settings ->
+        BlockRules.decide(
+            now = instant,
+            zone = clock.zone,
+            usedToday = used,
+            limit = limit,
+            downtime = schedule,
+            alwaysAllowed = withContext(ioDispatcher) { alwaysAllowedPolicy.isAlwaysAllowed(packageName, allowedConfig) },
+            override = override,
+            mode = settings.limitMode,
+        )
+    }
+
+    /**
+     * Opens the block screen as it would look for [packageName] (null: no
+     * particular app) blocked for [reason], using the current mode and
+     * what's been used today.
+     */
+    fun previewBlockScreen(packageName: String?, reason: BlockReason) {
+        viewModelScope.launch {
+            val instant = clock.instant()
+            now.value = instant
+            val zone = clock.zone
+            val day = instant.atZone(zone).toLocalDate()
+            val pkg = packageName.orEmpty()
+            val override = if (packageName == null) AppOverride() else overrideRepository.overrideFor(pkg).first()
+            val mode = settingsRepository.settings.first().limitMode
+            val until = when (reason) {
+                BlockReason.LimitReached -> day.plusDays(1).atStartOfDay(zone)
+                BlockReason.Downtime -> downtimeEnd(instant)
+            }
+            blockScreen.value = BlockScreenUi(
+                packageName = pkg,
+                label = packageName?.let(appLabels::labelFor),
+                reason = reason,
+                blockedUntil = until,
+                mode = mode,
+                graceAvailable = mode == LimitMode.Grace && override.graceUsedOn != day,
+            )
+        }
+    }
+
+    /** When downtime ends: now if it's on, otherwise the end of the next downtime. */
+    private suspend fun downtimeEnd(instant: java.time.Instant): java.time.ZonedDateTime {
+        val schedule = downtimeRepository.schedule.first()
+        val zone = clock.zone
+        return when (val status = schedule.copy(enabled = true).status(instant, zone)) {
+            is DowntimeStatus.ActiveUntil -> status.end
+            is DowntimeStatus.StartsAt -> {
+                val start = status.start
+                val window = schedule.windowFor(start.dayOfWeek) ?: DowntimeWindow.DEFAULT
+                window.on(start.toLocalDate(), zone).end
+            }
+            DowntimeStatus.Off -> DowntimeWindow.DEFAULT.on(instant.atZone(zone).toLocalDate(), zone).end
+        }
+    }
+
+    fun closeBlockScreen() {
+        blockScreen.value = null
+    }
+
+    /** Grace mode: one more minute, once per app per day. */
+    fun blockOneMoreMinute() = blockAction { ui, instant ->
+        overrideRepository.markGraceUsed(ui.packageName, instant.atZone(clock.zone).toLocalDate())
+        overrideRepository.allowUntil(ui.packageName, instant + BlockRules.ONE_MORE_MINUTE)
+    }
+
+    /** Reminder mode: ignore for 15 minutes. */
+    fun blockIgnore() = blockAction { ui, instant ->
+        overrideRepository.allowUntil(ui.packageName, instant + BlockRules.REMINDER_SNOOZE)
+    }
+
+    /** Asks for the PIN, then lets the user choose how long to unlock for. Without a PIN, goes straight to the choice. */
+    fun blockEnterPin() {
+        viewModelScope.launch {
+            val showChoice = { blockScreen.update { it?.copy(choosingUnlock = true) } }
+            if (pinManager.isPinSet.first()) pinFlow.start(PinFlowKind.Verify) { showChoice() } else showChoice()
+        }
+    }
+
+    fun blockUnlock(duration: UnlockDuration) = blockAction { ui, instant ->
+        val blocked = BlockDecision.Blocked(ui.reason, ui.blockedUntil, ui.graceAvailable)
+        overrideRepository.allowUntil(ui.packageName, BlockRules.unlockEnd(instant, duration, blocked))
+    }
+
+    /** Runs [action] for the open block screen, then closes it and refreshes "right now" statuses. */
+    private fun blockAction(action: suspend (BlockScreenUi, java.time.Instant) -> Unit) {
+        val ui = blockScreen.value ?: return
+        viewModelScope.launch {
+            val instant = clock.instant()
+            // A preview without a particular app has nothing to save.
+            if (ui.packageName.isNotEmpty()) action(ui, instant)
+            blockScreen.value = null
+            now.value = clock.instant()
+        }
+    }
+
+    fun setLimitMode(mode: LimitMode) = withPin { settingsRepository.setLimitMode(mode) }
+
     /** Saves a changed downtime schedule, asking for the PIN first when one is set. */
     fun saveDowntime(schedule: DowntimeSchedule) = withPin {
         downtimeRepository.save(schedule)
@@ -334,6 +462,7 @@ class MainViewModel(
                     container.downtimeRepository,
                     container.alwaysAllowedRepository,
                     container.alwaysAllowedPolicy,
+                    container.overrideRepository,
                 )
             }
         }

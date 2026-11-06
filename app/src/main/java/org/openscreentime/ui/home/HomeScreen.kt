@@ -46,6 +46,7 @@ import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.tooling.preview.Preview
 import androidx.compose.ui.unit.dp
 import org.openscreentime.R
+import org.openscreentime.blocking.LimitMode
 import org.openscreentime.data.HistoryLength
 import org.openscreentime.ui.HomeStatus
 import org.openscreentime.ui.components.FootnoteText
@@ -72,11 +73,14 @@ fun HomeScreen(
     onDowntimeClick: () -> Unit = {},
     alwaysAllowedCount: Int = 0,
     onAlwaysAllowedClick: () -> Unit = {},
+    limitMode: LimitMode = LimitMode.Default,
+    onLimitModeChange: (LimitMode) -> Unit = {},
     onSelectDay: (LocalDate) -> Unit = {},
     onAppClick: (String) -> Unit = {},
     onPinClick: () -> Unit = {},
 ) {
     var showHistoryDialog by rememberSaveable { mutableStateOf(false) }
+    var showModeDialog by rememberSaveable { mutableStateOf(false) }
 
     SettingsScaffold(title = stringResource(R.string.home_title), modifier = modifier) {
         when (status) {
@@ -122,6 +126,12 @@ fun HomeScreen(
                 onClick = onAlwaysAllowedClick,
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainer)
+            SettingsRow(
+                title = stringResource(R.string.mode_title),
+                summary = stringResource(limitMode.titleRes),
+                onClick = { showModeDialog = true },
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainer)
             TrackingSwitchRow(
                 checked = status != HomeStatus.TrackingOff,
                 onCheckedChange = onTrackingChange,
@@ -140,6 +150,17 @@ fun HomeScreen(
             )
         }
         FootnoteText(stringResource(R.string.home_privacy_note))
+    }
+
+    if (showModeDialog) {
+        LimitModeDialog(
+            selected = limitMode,
+            onSelect = {
+                showModeDialog = false
+                onLimitModeChange(it)
+            },
+            onDismiss = { showModeDialog = false },
+        )
     }
 
     if (showHistoryDialog) {
