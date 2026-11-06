@@ -19,7 +19,8 @@ import org.openscreentime.monitor.ShownWarningsStore
 import org.openscreentime.monitor.shownWarningsDataStore
 import org.openscreentime.blocking.DataStoreOverrideRepository
 import org.openscreentime.blocking.OverrideRepository
-import org.openscreentime.blocking.PreviewOnlyAppBlocker
+import org.openscreentime.blocking.DevicePolicyAppBlocker
+import org.openscreentime.blocking.ModeAwareAppBlocker
 import org.openscreentime.blocking.overrideDataStore
 import org.openscreentime.downtime.DataStoreDowntimeRepository
 import org.openscreentime.downtime.DowntimeRepository
@@ -90,15 +91,17 @@ class AppContainer(context: Context) {
 
     val shownWarningsStore: ShownWarningsStore = DataStoreShownWarningsStore(appContext.shownWarningsDataStore)
 
-    /** Phase 1 can only preview blocking; phase 2 swaps in a real blocker. */
-    val appBlocker: AppBlocker = PreviewOnlyAppBlocker()
+    /** Pauses apps when this app is the device owner; otherwise blocking can only be previewed. */
+    val appBlocker: AppBlocker = ModeAwareAppBlocker(deviceOwner, DevicePolicyAppBlocker(appContext))
+
+    val usageEventSource = SystemUsageEventSource(appContext)
 
     val installedApps: InstalledApps = PackageManagerInstalledApps(appContext.packageManager, appContext.packageName)
 
     val usageRepository: UsageRepository by lazy {
         RoomUsageRepository(
             dao = database.dailyUsageDao(),
-            eventSource = SystemUsageEventSource(appContext),
+            eventSource = usageEventSource,
             // Checked on each sync, in case the user switches home screen apps.
             excludedPackages = { homeScreenPackages(appContext.packageManager) },
         )

@@ -193,6 +193,8 @@
     <string name="unlock_rest_of_day">Rest of the day</string>
     <string name="unlock_until_downtime_ends">Until downtime ends</string>
     <string name="block_preview">Preview block screen</string>
+    <string name="block_get_more_time">Get more time</string>
+    <string name="block_support_message">Paused by Screen time. Open Screen time to get more time.</string>
     <string name="status_allowed">Right now: allowed</string>
     <string name="status_unlocked">Right now: extra time until %1$s</string>
     <string name="status_blocked_limit">Right now: would be blocked, limit reached</string>

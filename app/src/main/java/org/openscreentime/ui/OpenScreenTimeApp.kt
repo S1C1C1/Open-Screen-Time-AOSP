@@ -264,7 +264,13 @@ private fun MainNavigation(viewModel: MainViewModel, state: AppUiState) {
                 .collectAsStateWithLifecycle(initialValue = null)
             val decision by remember(packageName) { viewModel.blockDecision(packageName) }
                 .collectAsStateWithLifecycle(initialValue = null)
+            val enforcement by viewModel.enforcementMode.collectAsStateWithLifecycle()
             AppDetailScreen(
+                blockingActive = enforcement == EnforcementMode.DeviceOwner,
+                onGetMoreTime = {
+                    val reason = (decision as? BlockDecision.Blocked)?.reason ?: BlockReason.LimitReached
+                    viewModel.openBlockScreen(packageName, reason, real = true)
+                },
                 decision = decision,
                 onPreviewBlock = {
                     val reason = (decision as? BlockDecision.Blocked)?.reason ?: BlockReason.LimitReached

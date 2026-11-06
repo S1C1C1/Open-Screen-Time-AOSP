@@ -154,6 +154,11 @@ These are always enforced once a PIN is set, regardless of the options above:
 - Device-owner mode can't lock usage access on. If usage access is turned off, the app fails safe: every app except always allowed apps is blocked until it is turned back on.
 - Safe mode is blocked while a PIN is set, because safe mode would switch off a device-owner app. Factory reset is never blocked.
 - Lifting a restriction with the PIN lasts 15 minutes, then the restriction switches back on by itself.
+- Blocking: apps that are blocked are paused with `DevicePolicyManager.setPackagesSuspended`. A paused app can't be opened; Android shows the message "Paused by Screen time. Open Screen time to get more time." If a blocked app is open when its time runs out, the block screen opens over it, and "Close app" or Back goes to the home screen. Reminder mode never pauses apps; it only shows the reminder over the app.
+- Blocking is checked every 30 seconds while the screen is on, and sooner when a limit, extra time, downtime or the day is about to change, so blocking starts within a few seconds of the right moment. Extra time unpauses the app straight away.
+- To get more time for a paused app, open Screen time, go to the app's page, and tap **Get more time**.
+- Screen time only unpauses apps it paused itself. Removing the device owner, turning screen time off, or removing all limits and downtime unpauses everything.
+- If no PIN is set, "Enter PIN for more time" gives more time without a PIN, since nothing is locked yet.
 
 ## Settings integration
 

@@ -8,6 +8,7 @@ import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.padding
 import androidx.compose.material3.ListItem
 import androidx.compose.material3.ListItemDefaults
+import androidx.compose.material3.Button
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.OutlinedButton
 import androidx.compose.material3.Text
@@ -41,6 +42,8 @@ fun AppDetailScreen(
     onLimitClick: () -> Unit = {},
     decision: BlockDecision? = null,
     onPreviewBlock: () -> Unit = {},
+    blockingActive: Boolean = false,
+    onGetMoreTime: () -> Unit = {},
 ) {
     val resources = LocalResources.current
     SettingsScaffold(title = detail?.label.orEmpty(), onBack = onBack, modifier = modifier) {
@@ -108,7 +111,12 @@ fun AppDetailScreen(
             SettingsCard {
                 Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                     Text(blockStatusText(decision), style = MaterialTheme.typography.bodyMedium)
-                    OutlinedButton(onClick = onPreviewBlock) { Text(stringResource(R.string.block_preview)) }
+                    if (blockingActive && decision is BlockDecision.Blocked) {
+                        // The app is really paused: this opens the real block screen to get more time.
+                        Button(onClick = onGetMoreTime) { Text(stringResource(R.string.block_get_more_time)) }
+                    } else {
+                        OutlinedButton(onClick = onPreviewBlock) { Text(stringResource(R.string.block_preview)) }
+                    }
                 }
             }
         }
