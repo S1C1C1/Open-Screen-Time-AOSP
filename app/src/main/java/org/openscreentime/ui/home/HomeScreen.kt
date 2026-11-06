@@ -70,6 +70,8 @@ fun HomeScreen(
     onLimitsClick: () -> Unit = {},
     downtimeSummary: String? = null,
     onDowntimeClick: () -> Unit = {},
+    alwaysAllowedCount: Int = 0,
+    onAlwaysAllowedClick: () -> Unit = {},
     onSelectDay: (LocalDate) -> Unit = {},
     onAppClick: (String) -> Unit = {},
     onPinClick: () -> Unit = {},
@@ -112,6 +114,12 @@ fun HomeScreen(
                 title = stringResource(R.string.downtime_title),
                 summary = downtimeSummary ?: stringResource(R.string.downtime_status_off),
                 onClick = onDowntimeClick,
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainer)
+            SettingsRow(
+                title = stringResource(R.string.allowed_title),
+                summary = pluralStringResource(R.plurals.limits_count, alwaysAllowedCount, alwaysAllowedCount),
+                onClick = onAlwaysAllowedClick,
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainer)
             TrackingSwitchRow(

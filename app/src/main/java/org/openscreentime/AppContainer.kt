@@ -6,6 +6,11 @@ import org.openscreentime.data.DataStoreSettingsRepository
 import org.openscreentime.data.SettingsRepository
 import org.openscreentime.data.UsageDatabase
 import org.openscreentime.data.settingsDataStore
+import org.openscreentime.allowed.AlwaysAllowedPolicy
+import org.openscreentime.allowed.AlwaysAllowedRepository
+import org.openscreentime.allowed.AndroidSystemApps
+import org.openscreentime.allowed.DataStoreAlwaysAllowedRepository
+import org.openscreentime.allowed.alwaysAllowedDataStore
 import org.openscreentime.downtime.DataStoreDowntimeRepository
 import org.openscreentime.downtime.DowntimeRepository
 import org.openscreentime.downtime.downtimeDataStore
@@ -59,6 +64,15 @@ class AppContainer(context: Context) {
     val limitRepository: LimitRepository by lazy { RoomLimitRepository(database.appLimitDao()) }
 
     val downtimeRepository: DowntimeRepository = DataStoreDowntimeRepository(appContext.downtimeDataStore)
+
+    val alwaysAllowedRepository: AlwaysAllowedRepository =
+        DataStoreAlwaysAllowedRepository(appContext.alwaysAllowedDataStore)
+
+    val alwaysAllowedPolicy = AlwaysAllowedPolicy(
+        systemApps = AndroidSystemApps(appContext),
+        ownPackage = appContext.packageName,
+        homeScreenPackages = { homeScreenPackages(appContext.packageManager) },
+    )
 
     val installedApps: InstalledApps = PackageManagerInstalledApps(appContext.packageManager, appContext.packageName)
 

@@ -69,6 +69,10 @@ It is designed to ship as a **privileged system app** built into a ROM, with Gra
 - Defaults: Phone (dialer), emergency calling, and Settings.
 - Editable, but changes require the PIN once a PIN is set.
 - Emergency calling must always work and cannot be removed from the list.
+- "Phone" means whichever app is the default phone app right now, so a newly chosen default is allowed automatically. "Settings" and emergency calling are likewise looked up on the phone each time. Only system apps are accepted for the emergency dialer and Settings, so an installed app can't pose as one.
+- The screen time app itself and the home screen are always allowed but not listed, so the PIN can always be entered.
+- If an always allowed app also has a limit, the limit editor notes that the limit won't block it.
+- As with limits and downtime, the list can be changed before a PIN exists, with a reminder to set one.
 
 ### 5. Limit behavior (configurable)
 

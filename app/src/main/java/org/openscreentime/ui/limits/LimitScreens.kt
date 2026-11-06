@@ -167,6 +167,7 @@ fun LimitEditorScreen(
     onBack: () -> Unit,
     onSave: (AppLimit?) -> Unit,
     modifier: Modifier = Modifier,
+    alwaysAllowed: Boolean = false,
 ) {
     var enabled by rememberSaveable(current) { mutableStateOf(true) }
     var weekdayMinutes by rememberSaveable(current) {
@@ -235,6 +236,7 @@ fun LimitEditorScreen(
                 }
             }
             FootnoteText(stringResource(R.string.limits_reset_note))
+            if (alwaysAllowed) FootnoteText(stringResource(R.string.limits_always_allowed_note))
         }
     }
 }

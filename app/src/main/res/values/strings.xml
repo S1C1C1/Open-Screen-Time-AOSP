@@ -152,6 +152,20 @@
     <string name="downtime_status_day">Starts %1$s at %2$s</string>
     <string name="downtime_blocking_coming">Blocking apps during downtime comes in a later test build.</string>
 
+    <!-- Always allowed apps -->
+    <string name="allowed_title">Always allowed</string>
+    <string name="allowed_description">These apps can always be used, even when a limit is reached or during downtime.</string>
+    <string name="allowed_pin_reminder">Set a PIN so only you can change always allowed apps.</string>
+    <string name="allowed_add">Add app</string>
+    <string name="allowed_role_phone">Default phone app</string>
+    <string name="allowed_role_emergency">Always available</string>
+    <string name="allowed_role_settings">System settings</string>
+    <string name="allowed_emergency_label">Emergency calling</string>
+    <string name="allowed_cannot_remove">Can\'t be removed</string>
+    <string name="allowed_remove">Remove %1$s</string>
+    <string name="allowed_footnote">The screen time app itself is never blocked, so the PIN can always be entered.</string>
+    <string name="limits_always_allowed_note">This app is always allowed, so its limit won\'t block it.</string>
+
     <string name="cancel">Cancel</string>
     <string name="home_privacy_note">All screen time data stays on this phone. This app has no internet access.</string>
 </resources>

@@ -17,7 +17,11 @@ import org.openscreentime.ui.home.HomeScreen
 import org.openscreentime.ui.theme.OpenScreenTimeTheme
 import org.openscreentime.ui.usageaccess.UsageAccessScreen
 import org.openscreentime.ui.welcome.WelcomeScreen
+import org.openscreentime.allowed.AllowedApp
+import org.openscreentime.allowed.AllowedRole
 import org.openscreentime.downtime.DowntimeSchedule
+import org.openscreentime.ui.allowed.AllowedAppUi
+import org.openscreentime.ui.allowed.AlwaysAllowedScreen
 import org.openscreentime.downtime.DowntimeWindow
 import org.openscreentime.limits.AppLimit
 import org.openscreentime.ui.downtime.DowntimeScreen
@@ -239,6 +243,35 @@ class ScreenshotTests {
     }
 
     @Test
+    fun alwaysAllowed_noPin() = capture("always_allowed_no_pin") { AllowedFor(pinSet = false) }
+
+    @Test
+    @Config(qualifiers = "+night")
+    fun alwaysAllowed_dark() = capture("always_allowed_dark", dark = true) { AllowedFor(pinSet = true) }
+
+    @Test
+    fun limitEditor_alwaysAllowedNote() = capture("limit_editor_always_allowed") {
+        LimitEditorScreen("maps", "Maps", current = null, onBack = {}, onSave = {}, alwaysAllowed = true)
+    }
+
+    @Composable
+    private fun AllowedFor(pinSet: Boolean) {
+        AlwaysAllowedScreen(
+            apps = listOf(
+                AllowedAppUi(AllowedApp("phone", AllowedRole.Phone), "Phone"),
+                AllowedAppUi(AllowedApp("emergency", AllowedRole.Emergency), "Phone Services"),
+                AllowedAppUi(AllowedApp("settings", AllowedRole.Settings), "Settings"),
+                AllowedAppUi(AllowedApp("maps", AllowedRole.Added), "Maps"),
+            ),
+            pinSet = pinSet,
+            onRemove = {},
+            onAddClick = {},
+            onBack = {},
+            onSetPinClick = {},
+        )
+    }
+
+    @Test
     fun historyDialog() = capture("history_dialog") {
         HistoryLengthDialog(selected = HistoryLength.FourWeeks, onSelect = {}, onDismiss = {})
     }
@@ -248,6 +281,7 @@ class ScreenshotTests {
         HomeScreen(
             limitCount = 2,
             downtimeSummary = "Starts today at 9:00 PM",
+            alwaysAllowedCount = 3,
             status = status,
             dashboard = dashboard,
             historyLength = HistoryLength.FourWeeks,

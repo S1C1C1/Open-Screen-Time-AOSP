@@ -12,6 +12,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.openscreentime.data.AppSettings
 import org.openscreentime.data.HistoryLength
+import org.openscreentime.allowed.AllowedApp
+import org.openscreentime.allowed.AllowedRole
 import org.openscreentime.downtime.DowntimeSchedule
 import org.openscreentime.downtime.DowntimeStatus
 import org.openscreentime.limits.AppLimit
@@ -44,6 +46,7 @@ class MainViewModelTest {
     private val pinManager = testPinManager()
     private val limits = FakeLimitRepository()
     private val downtime = FakeDowntimeRepository()
+    private val allowed = FakeAlwaysAllowedRepository()
     private var installed = listOf(
         InstalledApp("chat", "Chat"),
         InstalledApp("mail", "Mail"),
@@ -59,8 +62,11 @@ class MainViewModelTest {
         limitRepository = limits,
         installedApps = { installed },
         downtimeRepository = downtime,
+        alwaysAllowedRepository = allowed,
+        alwaysAllowedPolicy = testAlwaysAllowedPolicy(),
         clock = clock,
         firstDayOfWeek = DayOfWeek.SUNDAY,
+        ioDispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
     )
 
     private fun MainViewModel.currentState(): AppUiState {
@@ -524,5 +530,64 @@ class MainViewModelTest {
     fun daysAreInTheRegionsOrder() {
         assertEquals(java.time.DayOfWeek.SUNDAY, newViewModel().daysInOrder.first())
         assertEquals(7, newViewModel().daysInOrder.size)
+    }
+
+    // --- Always allowed apps ---
+
+    @Test
+    fun alwaysAllowedStartsWithTheThreeDefaults() {
+        val viewModel = newViewModel()
+        assertEquals(3, viewModel.currentState().alwaysAllowedCount)
+        assertEquals(
+            listOf(AllowedRole.Phone, AllowedRole.Emergency, AllowedRole.Settings),
+            viewModel.alwaysAllowed.value.map { it.app.role },
+        )
+    }
+
+    @Test
+    fun addingAndRemovingWithoutAPin() {
+        val viewModel = newViewModel()
+        var done = false
+        viewModel.addAlwaysAllowed("mail") { done = true }
+        assertTrue(done)
+        assertEquals(4, viewModel.currentState().alwaysAllowedCount)
+
+        viewModel.removeAlwaysAllowed(AllowedApp("mail", AllowedRole.Added))
+        assertEquals(3, viewModel.currentState().alwaysAllowedCount)
+    }
+
+    @Test
+    fun emergencyCallingStaysWhenRemovalIsTried() {
+        val viewModel = newViewModel()
+        viewModel.removeAlwaysAllowed(AllowedApp("emergency", AllowedRole.Emergency))
+        assertEquals(3, viewModel.currentState().alwaysAllowedCount)
+    }
+
+    @Test
+    fun withAPinChangesToAlwaysAllowedAskForIt() {
+        runBlocking { pinManager.setInitialPin(pin("4826")) }
+        val viewModel = newViewModel()
+        viewModel.removeAlwaysAllowed(AllowedApp("settings", AllowedRole.Settings))
+        viewModel.currentState()
+        assertEquals(3, viewModel.currentState().alwaysAllowedCount)
+
+        viewModel.enterPin("4826")
+        assertEquals(2, viewModel.currentState().alwaysAllowedCount)
+    }
+
+    @Test
+    fun pickerLeavesOutAppsAlreadyAllowed() {
+        installed = listOf(InstalledApp("settings", "Settings"), InstalledApp("mail", "Mail"))
+        val viewModel = newViewModel()
+        viewModel.currentState()
+        val available = runBlocking { viewModel.appsNotAlwaysAllowed().first() }
+        assertEquals(listOf("mail"), available.map { it.packageName })
+    }
+
+    @Test
+    fun limitEditorKnowsWhenAnAppIsAlwaysAllowed() {
+        val viewModel = newViewModel()
+        assertTrue(runBlocking { viewModel.isAlwaysAllowed("dialer").first() })
+        assertFalse(runBlocking { viewModel.isAlwaysAllowed("video").first() })
     }
 }

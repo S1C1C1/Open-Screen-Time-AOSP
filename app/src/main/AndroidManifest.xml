@@ -28,8 +28,8 @@
 
     <!--
         Android hides other apps from this one unless it says what it needs:
-        home screen apps (so their time isn't counted) and launchable apps
-        (to show their names).
+        home screen apps (so their time isn't counted), launchable apps
+        (to show their names), and the emergency dialer and Settings.
     -->
     <queries>
         <intent>
@@ -40,6 +40,14 @@
             <action android:name="android.intent.action.MAIN" />
             <category android:name="android.intent.category.LAUNCHER" />
         </intent>
+        <!-- To find the emergency dialer and Settings, which are always allowed. -->
+        <intent>
+            <action android:name="com.android.phone.EmergencyDialer.DIAL" />
+        </intent>
+        <intent>
+            <action android:name="android.settings.SETTINGS" />
+        </intent>
+        <package android:name="com.android.phone" />
     </queries>
 
     <application
