@@ -27,6 +27,7 @@ import org.openscreentime.admin.EnforcementMode
 import org.openscreentime.blocking.BlockActivity
 import org.openscreentime.blocking.BlockRequest
 import org.openscreentime.blocking.EnforcementPlanner
+import org.openscreentime.restrictions.RestrictionRules
 import org.openscreentime.usage.foregroundApp
 import java.time.Instant
 import java.time.Clock
@@ -103,10 +104,17 @@ class MonitorService : Service() {
         val settings = container.settingsRepository.settings.first()
         val limits = container.limitRepository.limits.first()
         val downtime = container.downtimeRepository.schedule.first()
+
+        // Restrictions: switch them back on as soon as a 15-minute lift ends.
+        val restrictions = container.restrictionsRepository.state.first()
+        container.restrictionApplier.apply(RestrictionRules.active(restrictions, container.deviceClock))
+        val liftEnds = RestrictionRules.nextLiftEnd(restrictions, container.deviceClock)?.plusSeconds(1)
+
         if (!WarningPlanner.hasSomethingToWatch(settings.trackingEnabled, limits, downtime)) {
             // Nothing to enforce: make sure nothing stays paused.
             container.appBlocker.setBlockedApps(emptySet())
-            return null
+            // Keep running only to end a restriction lift on time.
+            return liftEnds?.coerceAtMost(CHECK_EVERY)
         }
 
         val clock = Clock.systemDefaultZone()
@@ -138,7 +146,8 @@ class MonitorService : Service() {
         }
 
         if (container.deviceOwner.mode() != EnforcementMode.DeviceOwner) return CHECK_EVERY
-        return enforce(container, now, clock, usageToday.associate { it.packageName to it.time }, limits, downtime, hasAccess, isAllowed)
+        val wait = enforce(container, now, clock, usageToday.associate { it.packageName to it.time }, limits, downtime, hasAccess, isAllowed)
+        return if (liftEnds != null) minOf(wait, liftEnds) else wait
     }
 
     @Suppress("LongParameterList")

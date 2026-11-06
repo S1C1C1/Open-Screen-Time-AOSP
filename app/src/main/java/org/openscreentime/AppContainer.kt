@@ -28,6 +28,13 @@ import org.openscreentime.downtime.downtimeDataStore
 import org.openscreentime.limits.LimitRepository
 import org.openscreentime.limits.RoomLimitRepository
 import org.openscreentime.pin.DataStorePinStore
+import org.openscreentime.pin.DeviceClock
+import org.openscreentime.restrictions.DataStoreRestrictionsRepository
+import org.openscreentime.restrictions.DevicePolicyRestrictionApplier
+import org.openscreentime.restrictions.ModeAwareRestrictionApplier
+import org.openscreentime.restrictions.RestrictionApplier
+import org.openscreentime.restrictions.RestrictionsRepository
+import org.openscreentime.restrictions.restrictionsDataStore
 import org.openscreentime.pin.KeystoreMac
 import org.openscreentime.pin.PinHasher
 import org.openscreentime.pin.PinManager
@@ -63,12 +70,18 @@ class AppContainer(context: Context) {
         Room.databaseBuilder(appContext, UsageDatabase::class.java, "usage.db").build()
     }
 
+    /** Time since phone start, which changing the date doesn't affect. */
+    val deviceClock: DeviceClock = SystemDeviceClock(appContext.contentResolver)
+
+    val restrictionsRepository: RestrictionsRepository =
+        DataStoreRestrictionsRepository(appContext.restrictionsDataStore)
+
     /** Created on first use: making the keystore key can take a moment. */
     val pinManager: PinManager by lazy {
         PinManager(
             store = DataStorePinStore(appContext.pinDataStore),
             hasher = PinHasher(KeystoreMac(appContext.packageManager)),
-            clock = SystemDeviceClock(appContext.contentResolver),
+            clock = deviceClock,
         )
     }
 
@@ -88,6 +101,9 @@ class AppContainer(context: Context) {
     val overrideRepository: OverrideRepository = DataStoreOverrideRepository(appContext.overrideDataStore)
 
     val deviceOwner: DeviceOwner = AndroidDeviceOwner(appContext)
+
+    val restrictionApplier: RestrictionApplier =
+        ModeAwareRestrictionApplier(deviceOwner, DevicePolicyRestrictionApplier(appContext))
 
     val shownWarningsStore: ShownWarningsStore = DataStoreShownWarningsStore(appContext.shownWarningsDataStore)
 

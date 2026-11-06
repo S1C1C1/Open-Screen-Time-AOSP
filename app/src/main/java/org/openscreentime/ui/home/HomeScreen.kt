@@ -79,6 +79,8 @@ fun HomeScreen(
     onBlockingClick: () -> Unit = {},
     showNotificationPrompt: Boolean = false,
     onAllowNotifications: () -> Unit = {},
+    restrictionsOnCount: Int = 0,
+    onRestrictionsClick: () -> Unit = {},
     onSelectDay: (LocalDate) -> Unit = {},
     onAppClick: (String) -> Unit = {},
     onPinClick: () -> Unit = {},
@@ -142,6 +144,16 @@ fun HomeScreen(
                 title = stringResource(R.string.allowed_title),
                 summary = pluralStringResource(R.plurals.limits_count, alwaysAllowedCount, alwaysAllowedCount),
                 onClick = onAlwaysAllowedClick,
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainer)
+            SettingsRow(
+                title = stringResource(R.string.restrictions_title),
+                summary = if (restrictionsOnCount == 0) {
+                    stringResource(R.string.restrictions_off)
+                } else {
+                    pluralStringResource(R.plurals.restrictions_on_count, restrictionsOnCount, restrictionsOnCount)
+                },
+                onClick = onRestrictionsClick,
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainer)
             SettingsRow(

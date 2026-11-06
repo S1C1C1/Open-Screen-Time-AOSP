@@ -30,6 +30,7 @@ import androidx.navigation.navArgument
 import org.openscreentime.admin.EnforcementMode
 import org.openscreentime.blocking.BlockDecision
 import org.openscreentime.ui.admin.BlockingStatusScreen
+import org.openscreentime.ui.restrictions.RestrictionsScreen
 import org.openscreentime.blocking.BlockReason
 import org.openscreentime.ui.allowed.AlwaysAllowedScreen
 import org.openscreentime.ui.block.BlockActions
@@ -129,6 +130,7 @@ private fun MainNavigation(viewModel: MainViewModel, state: AppUiState) {
         composable(Routes.DASHBOARD) {
             val downtime by viewModel.downtime.collectAsStateWithLifecycle()
             val enforcement by viewModel.enforcementMode.collectAsStateWithLifecycle()
+            val restrictions by viewModel.restrictions.collectAsStateWithLifecycle()
             val context = LocalContext.current
             var notificationsAllowed by remember { mutableStateOf(notificationsAllowed(context)) }
             val askForNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
@@ -143,6 +145,8 @@ private fun MainNavigation(viewModel: MainViewModel, state: AppUiState) {
                 alwaysAllowedCount = state.alwaysAllowedCount,
                 limitMode = state.limitMode,
                 blockingActive = enforcement == EnforcementMode.DeviceOwner,
+                restrictionsOnCount = restrictions.enabled.size,
+                onRestrictionsClick = { navController.navigate(Routes.RESTRICTIONS) },
                 // Warnings only matter once there's a limit or downtime to warn about.
                 showNotificationPrompt = !notificationsAllowed && (state.limitCount > 0 || downtime.schedule.enabled),
                 onAllowNotifications = { askForNotifications.launch(Manifest.permission.POST_NOTIFICATIONS) },
@@ -172,6 +176,17 @@ private fun MainNavigation(viewModel: MainViewModel, state: AppUiState) {
                 onAppClick = { navController.navigate(Routes.limitEditor(it)) },
                 onAddClick = { navController.navigate(Routes.ADD_LIMIT) },
                 onSetPinClick = viewModel::startPinSetup,
+            )
+        }
+        composable(Routes.RESTRICTIONS) {
+            val restrictions by viewModel.restrictions.collectAsStateWithLifecycle()
+            val enforcement by viewModel.enforcementMode.collectAsStateWithLifecycle()
+            RestrictionsScreen(
+                ui = restrictions,
+                blockingActive = enforcement == EnforcementMode.DeviceOwner,
+                onToggle = viewModel::setRestriction,
+                onAllowFor15Minutes = viewModel::allowRestrictionFor15Minutes,
+                onBack = { navController.popBackStack() },
             )
         }
         composable(Routes.BLOCKING) {
@@ -296,6 +311,7 @@ private object Routes {
     const val DOWNTIME = "downtime"
     const val ALLOWED = "allowed"
     const val BLOCKING = "blocking"
+    const val RESTRICTIONS = "restrictions"
     const val ADD_ALLOWED = "allowed/add"
     const val ADD_LIMIT = "limits/add"
     const val LIMIT_EDITOR = "limits/edit/{$ARG_PACKAGE}"
