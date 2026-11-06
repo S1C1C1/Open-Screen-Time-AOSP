@@ -44,8 +44,11 @@ fun OpenScreenTimeApp(
         }
         AppScreen.Home -> HomeScreen(
             status = state.homeStatus,
+            todayUsage = state.todayUsage,
+            historyLength = state.historyLength,
             onTrackingChange = viewModel::setTrackingEnabled,
             onAllowUsageAccess = viewModel::openUsageAccessGuide,
+            onHistoryLengthChange = viewModel::setHistoryLength,
         )
     }
 }

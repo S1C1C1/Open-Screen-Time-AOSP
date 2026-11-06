@@ -1,6 +1,7 @@
 plugins {
     alias(libs.plugins.android.application)
     alias(libs.plugins.kotlin.compose)
+    alias(libs.plugins.ksp)
     alias(libs.plugins.roborazzi)
 }
 
@@ -70,6 +71,12 @@ android {
     }
 }
 
+ksp {
+    // Room writes a description of the database layout here. It is committed
+    // so future changes to the database can be reviewed and migrated safely.
+    arg("room.schemaLocation", "$projectDir/schemas")
+}
+
 roborazzi {
     // Reference screenshots are committed so changes show up in pull requests.
     outputDir.set(file("src/test/screenshots"))
@@ -81,6 +88,9 @@ dependencies {
     implementation(libs.androidx.lifecycle.runtime.ktx)
     implementation(libs.androidx.lifecycle.runtime.compose)
     implementation(libs.androidx.datastore.preferences)
+    implementation(libs.androidx.room.runtime)
+    ksp(libs.androidx.room.compiler)
+    implementation(libs.androidx.work.runtime)
     implementation(platform(libs.androidx.compose.bom))
     implementation(libs.androidx.compose.ui)
     implementation(libs.androidx.compose.ui.tooling.preview)

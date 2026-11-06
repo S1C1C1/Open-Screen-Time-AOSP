@@ -1,6 +1,8 @@
 package org.openscreentime.data
 
 import androidx.datastore.preferences.core.PreferenceDataStoreFactory
+import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.SupervisorJob
@@ -67,5 +69,26 @@ class DataStoreSettingsRepositoryTest {
         assertEquals(true, repository.settings.first().trackingEnabled)
         // Changing tracking never resets the welcome screen.
         assertEquals(true, repository.settings.first().onboardingCompleted)
+    }
+
+    @Test
+    fun historyLengthDefaultsToFourWeeksAndCanBeChanged() = runBlocking {
+        val repository = newRepository()
+        assertEquals(HistoryLength.FourWeeks, repository.settings.first().historyLength)
+
+        repository.setHistoryLength(HistoryLength.OneYear)
+        assertEquals(HistoryLength.OneYear, repository.settings.first().historyLength)
+    }
+
+    @Test
+    fun unknownSavedHistoryLengthFallsBackToDefault() = runBlocking {
+        val dataStore = PreferenceDataStoreFactory.create(scope = scope) {
+            tempFolder.root.resolve("odd.preferences_pb")
+        }
+        dataStore.edit { it[stringPreferencesKey("history_length")] = "TenYears" }
+        assertEquals(
+            HistoryLength.FourWeeks,
+            DataStoreSettingsRepository(dataStore).settings.first().historyLength,
+        )
     }
 }

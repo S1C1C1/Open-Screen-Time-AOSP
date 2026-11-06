@@ -8,11 +8,14 @@ import com.github.takahirom.roborazzi.captureRoboImage
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import org.openscreentime.data.HistoryLength
+import org.openscreentime.ui.home.HistoryLengthDialog
 import org.openscreentime.ui.home.HomeScreen
 import org.openscreentime.ui.theme.OpenScreenTimeTheme
 import org.openscreentime.ui.usageaccess.UsageAccessScreen
 import org.openscreentime.ui.welcome.WelcomeScreen
 import org.robolectric.annotation.Config
+import java.time.Duration
 
 /**
  * Screenshot tests let the UI be reviewed without a phone. The reference
@@ -63,8 +66,36 @@ class ScreenshotTests {
     @Config(qualifiers = "+night")
     fun home_ready_dark() = capture("home_ready_dark", dark = true) { HomeFor(HomeStatus.Ready) }
 
-    @Composable
-    private fun HomeFor(status: HomeStatus) {
-        HomeScreen(status = status, onTrackingChange = {}, onAllowUsageAccess = {})
+    @Test
+    fun home_ready_noUsageYet() = capture("home_ready_no_usage") {
+        HomeFor(HomeStatus.Ready, todayUsage = TodayUsage(Duration.ZERO, emptyList()))
     }
+
+    @Test
+    fun historyDialog() = capture("history_dialog") {
+        HistoryLengthDialog(selected = HistoryLength.FourWeeks, onSelect = {}, onDismiss = {})
+    }
+
+    @Composable
+    private fun HomeFor(status: HomeStatus, todayUsage: TodayUsage = sampleUsage) {
+        HomeScreen(
+            status = status,
+            todayUsage = todayUsage,
+            historyLength = HistoryLength.FourWeeks,
+            onTrackingChange = {},
+            onAllowUsageAccess = {},
+            onHistoryLengthChange = {},
+        )
+    }
+
+    private val sampleUsage = TodayUsage(
+        total = Duration.ofMinutes(197),
+        topApps = listOf(
+            AppTime("Browser", Duration.ofMinutes(74)),
+            AppTime("Messages", Duration.ofMinutes(48)),
+            AppTime("A very long app name that does not fit on one line", Duration.ofMinutes(31)),
+            AppTime("Camera", Duration.ofMinutes(12)),
+            AppTime("Clock", Duration.ofSeconds(40)),
+        ),
+    )
 }

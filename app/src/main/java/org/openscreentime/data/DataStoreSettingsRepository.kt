@@ -5,6 +5,7 @@ import androidx.datastore.core.DataStore
 import androidx.datastore.preferences.core.Preferences
 import androidx.datastore.preferences.core.booleanPreferencesKey
 import androidx.datastore.preferences.core.edit
+import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -21,6 +22,9 @@ class DataStoreSettingsRepository(
         AppSettings(
             onboardingCompleted = prefs[ONBOARDING_COMPLETED] ?: false,
             trackingEnabled = prefs[TRACKING_ENABLED] ?: false,
+            historyLength = prefs[HISTORY_LENGTH]
+                ?.let { saved -> HistoryLength.entries.find { it.name == saved } }
+                ?: HistoryLength.Default,
         )
     }
 
@@ -36,8 +40,15 @@ class DataStoreSettingsRepository(
         dataStore.edit { prefs -> prefs[TRACKING_ENABLED] = enabled }
     }
 
+    override suspend fun setHistoryLength(length: HistoryLength) {
+        dataStore.edit { prefs -> prefs[HISTORY_LENGTH] = length.name }
+    }
+
     private companion object {
         val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         val TRACKING_ENABLED = booleanPreferencesKey("tracking_enabled")
+
+        // Saved by name. Don't rename HistoryLength values without migrating.
+        val HISTORY_LENGTH = stringPreferencesKey("history_length")
     }
 }

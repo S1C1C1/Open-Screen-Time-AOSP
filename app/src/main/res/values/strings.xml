@@ -30,9 +30,29 @@
     <string name="home_needs_access_title">Usage access is off</string>
     <string name="home_needs_access_body">Screen time can\'t see how long apps are used until you allow usage access.</string>
     <string name="home_allow_access">Allow usage access</string>
-    <string name="home_ready_title">Screen time is on</string>
-    <string name="home_ready_body">Your usage dashboard is coming in an upcoming test build.</string>
-    <string name="home_use_screen_time">Use screen time</string>
+        <string name="home_use_screen_time">Use screen time</string>
     <string name="home_use_screen_time_summary">Track how long each app is used</string>
+
+    <!-- Today (temporary summary until the dashboard) -->
+    <string name="today_title">Today</string>
+    <string name="today_most_used">Most used</string>
+    <string name="today_no_usage">No app use recorded yet today.</string>
+    <string name="today_dashboard_coming">A full dashboard with weekly charts is coming in an upcoming test build.</string>
+
+    <!-- Usage history setting -->
+    <string name="history_title">Keep usage history</string>
+    <string name="history_dialog_body">Older usage is deleted from this phone.</string>
+    <string name="history_one_week">1 week</string>
+    <string name="history_four_weeks">4 weeks</string>
+    <string name="history_three_months">3 months</string>
+    <string name="history_one_year">1 year</string>
+
+    <!-- Durations, e.g. "1 hr 5 min" -->
+    <string name="duration_hours_minutes">%1$d hr %2$d min</string>
+    <string name="duration_hours">%1$d hr</string>
+    <string name="duration_minutes">%1$d min</string>
+    <string name="duration_less_than_minute">Less than 1 min</string>
+
+    <string name="cancel">Cancel</string>
     <string name="home_privacy_note">All screen time data stays on this phone. This app has no internet access.</string>
 </resources>
