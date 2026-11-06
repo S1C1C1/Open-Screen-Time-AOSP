@@ -36,6 +36,7 @@ class NavigationTest {
             pinManager = testPinManager(),
             limitRepository = FakeLimitRepository(),
             installedApps = { listOf(InstalledApp("video", "Video"), InstalledApp("maps", "Maps")) },
+            downtimeRepository = FakeDowntimeRepository(),
             clock = Clock.fixed(SampleUsage.today.atTime(12, 0).toInstant(ZoneOffset.UTC), ZoneOffset.UTC),
             firstDayOfWeek = SampleUsage.firstDayOfWeek,
         )
@@ -86,5 +87,16 @@ class NavigationTest {
         // Back on the app's page: Maps was used 9 min today, so 51 min of the 1 hr default are left.
         composeRule.onNodeWithText("1 hr a day").performScrollTo().assertIsDisplayed()
         composeRule.onNodeWithText("51 min left today").assertIsDisplayed()
+    }
+
+    @Test
+    fun turnOnDowntimeFromSettings() {
+        startApp()
+        composeRule.onNodeWithText("Downtime").performScrollTo().performClick()
+        composeRule.onNodeWithText("Use downtime").performClick()
+        composeRule.onNodeWithText("Every day").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Back").performClick()
+        // The clock is Thursday noon, so the default 9 PM start is later today.
+        composeRule.onNodeWithText("Starts today at 9:00", substring = true).performScrollTo().assertIsDisplayed()
     }
 }

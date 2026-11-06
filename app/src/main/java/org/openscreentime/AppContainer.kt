@@ -6,6 +6,9 @@ import org.openscreentime.data.DataStoreSettingsRepository
 import org.openscreentime.data.SettingsRepository
 import org.openscreentime.data.UsageDatabase
 import org.openscreentime.data.settingsDataStore
+import org.openscreentime.downtime.DataStoreDowntimeRepository
+import org.openscreentime.downtime.DowntimeRepository
+import org.openscreentime.downtime.downtimeDataStore
 import org.openscreentime.limits.LimitRepository
 import org.openscreentime.limits.RoomLimitRepository
 import org.openscreentime.pin.DataStorePinStore
@@ -54,6 +57,8 @@ class AppContainer(context: Context) {
     }
 
     val limitRepository: LimitRepository by lazy { RoomLimitRepository(database.appLimitDao()) }
+
+    val downtimeRepository: DowntimeRepository = DataStoreDowntimeRepository(appContext.downtimeDataStore)
 
     val installedApps: InstalledApps = PackageManagerInstalledApps(appContext.packageManager, appContext.packageName)
 

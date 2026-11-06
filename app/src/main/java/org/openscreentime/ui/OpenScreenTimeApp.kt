@@ -1,6 +1,7 @@
 package org.openscreentime.ui
 
 import android.net.Uri
+import android.text.format.DateFormat
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Box
@@ -10,6 +11,9 @@ import androidx.compose.runtime.Composable
 import androidx.compose.runtime.getValue
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalResources
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import androidx.navigation.NavType
 import androidx.navigation.compose.NavHost
@@ -19,6 +23,8 @@ import androidx.navigation.navArgument
 import org.openscreentime.ui.appdetail.AppDetailScreen
 import kotlinx.coroutines.flow.map
 import org.openscreentime.limits.AppLimit
+import org.openscreentime.ui.downtime.DowntimeScreen
+import org.openscreentime.ui.format.formatDowntimeStatus
 import org.openscreentime.ui.home.HomeScreen
 import org.openscreentime.ui.limits.AppPickerScreen
 import org.openscreentime.ui.limits.LimitEditorScreen
@@ -90,7 +96,13 @@ private fun MainNavigation(viewModel: MainViewModel, state: AppUiState) {
     val navController = rememberNavController()
     NavHost(navController = navController, startDestination = Routes.DASHBOARD) {
         composable(Routes.DASHBOARD) {
+            val downtime by viewModel.downtime.collectAsStateWithLifecycle()
+            val resources = LocalResources.current
+            val locale = LocalConfiguration.current.locales[0]
+            val use24Hour = DateFormat.is24HourFormat(LocalContext.current)
             HomeScreen(
+                downtimeSummary = formatDowntimeStatus(downtime.status, downtime.today, resources, locale, use24Hour),
+                onDowntimeClick = { navController.navigate(Routes.DOWNTIME) },
                 status = state.homeStatus,
                 dashboard = state.dashboard,
                 historyLength = state.historyLength,
@@ -113,6 +125,19 @@ private fun MainNavigation(viewModel: MainViewModel, state: AppUiState) {
                 onBack = { navController.popBackStack() },
                 onAppClick = { navController.navigate(Routes.limitEditor(it)) },
                 onAddClick = { navController.navigate(Routes.ADD_LIMIT) },
+                onSetPinClick = viewModel::startPinSetup,
+            )
+        }
+        composable(Routes.DOWNTIME) {
+            val downtime by viewModel.downtime.collectAsStateWithLifecycle()
+            DowntimeScreen(
+                schedule = downtime.schedule,
+                status = downtime.status,
+                today = downtime.today,
+                daysInOrder = viewModel.daysInOrder,
+                pinSet = state.pinSet,
+                onChange = viewModel::saveDowntime,
+                onBack = { navController.popBackStack() },
                 onSetPinClick = viewModel::startPinSetup,
             )
         }
@@ -171,6 +196,7 @@ private object Routes {
     const val APP_DETAIL = "app/{$ARG_PACKAGE}"
 
     const val LIMITS = "limits"
+    const val DOWNTIME = "downtime"
     const val ADD_LIMIT = "limits/add"
     const val LIMIT_EDITOR = "limits/edit/{$ARG_PACKAGE}"
 

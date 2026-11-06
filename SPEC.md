@@ -56,7 +56,11 @@ It is designed to ship as a **privileged system app** built into a ROM, with Gra
 ### 3. Downtime schedule
 
 - Set a recurring time window, such as 9:00 PM–7:00 AM, during which all apps except **always allowed** apps are blocked.
-- Optionally use different schedules per day of the week.
+- Optionally use different schedules per day of the week, including no downtime on some days.
+- Times can be set to any minute with Android's standard time picker and follow the phone's 12/24-hour setting. When first turned on, downtime is 9:00 PM–7:00 AM every day.
+- A window that ends earlier than it starts runs overnight and belongs to the day it starts: Friday 9:00 PM–7:00 AM covers Friday night into Saturday morning. The start time is included; the end time is not. Start and end cannot be the same.
+- Back-to-back or overlapping windows count as one stretch. Daylight saving changes make that night an hour longer or shorter.
+- As with limits, downtime can be set before a PIN exists, with a reminder to set one; once a PIN is set, changes require it.
 - Show a notification 5 minutes before downtime starts. *(Phase 2.)*
 
 ### 4. Always allowed apps

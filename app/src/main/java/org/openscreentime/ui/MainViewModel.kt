@@ -23,6 +23,9 @@ import kotlinx.coroutines.withContext
 import org.openscreentime.OpenScreenTimeApplication
 import org.openscreentime.data.HistoryLength
 import org.openscreentime.data.SettingsRepository
+import org.openscreentime.downtime.DowntimeRepository
+import org.openscreentime.downtime.DowntimeSchedule
+import org.openscreentime.downtime.DowntimeStatus
 import org.openscreentime.limits.AppLimit
 import org.openscreentime.limits.LimitRepository
 import org.openscreentime.pin.PinManager
@@ -54,6 +57,7 @@ class MainViewModel(
     private val pinManager: PinManager,
     private val limitRepository: LimitRepository,
     private val installedApps: InstalledApps,
+    private val downtimeRepository: DowntimeRepository,
     private val clock: Clock = Clock.systemDefaultZone(),
     /** First day of the week, from the phone's region (Sunday in the US, Monday in most of Europe). */
     private val firstDayOfWeek: DayOfWeek = WeekFields.of(Locale.getDefault()).firstDayOfWeek,
@@ -71,6 +75,17 @@ class MainViewModel(
     private val hasUsageAccess = MutableStateFlow(usageAccessChecker.hasUsageAccess())
     private val usageAccessGuideOpen = MutableStateFlow(false)
     private val today = MutableStateFlow(LocalDate.now(clock))
+
+    /** The moment the downtime status is worked out for; refreshed when the app is opened. */
+    private val now = MutableStateFlow(clock.instant())
+
+    /** Days of the week in the order the phone's region uses. */
+    val daysInOrder: List<DayOfWeek> = (0L until 7L).map { firstDayOfWeek.plus(it) }
+
+    /** The downtime schedule and whether it's on right now. */
+    val downtime: StateFlow<DowntimeUi> = combine(downtimeRepository.schedule, now) { schedule, instant ->
+        DowntimeUi(schedule, schedule.status(instant, clock.zone), instant.atZone(clock.zone).toLocalDate())
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, DowntimeUi())
 
     /** The day picked in the week chart; null means today. */
     private val selectedDay = MutableStateFlow<LocalDate?>(null)
@@ -109,6 +124,7 @@ class MainViewModel(
     fun onAppVisible() {
         // Coming back to the app starts again from today.
         selectedDay.value = null
+        now.value = clock.instant()
         refreshUsageAccess()
         syncUsage()
     }
@@ -215,7 +231,13 @@ class MainViewModel(
         onDone()
     }
 
-    /** Opens PIN setup; used by the reminder on the App limits screen. */
+    /** Saves a changed downtime schedule, asking for the PIN first when one is set. */
+    fun saveDowntime(schedule: DowntimeSchedule) = withPin {
+        downtimeRepository.save(schedule)
+        now.value = clock.instant()
+    }
+
+    /** Opens PIN setup; used by the reminders on the App limits and Downtime screens. */
     fun startPinSetup() {
         viewModelScope.launch { pinFlow.start(PinFlowKind.Setup) }
     }
@@ -263,8 +285,16 @@ class MainViewModel(
                     container.pinManager,
                     container.limitRepository,
                     container.installedApps,
+                    container.downtimeRepository,
                 )
             }
         }
     }
 }
+
+/** What the Downtime screen and its Settings row show. */
+data class DowntimeUi(
+    val schedule: DowntimeSchedule = DowntimeSchedule(),
+    val status: DowntimeStatus = DowntimeStatus.Off,
+    val today: LocalDate = LocalDate.MIN,
+)

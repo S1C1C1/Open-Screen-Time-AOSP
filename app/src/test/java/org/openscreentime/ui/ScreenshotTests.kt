@@ -17,7 +17,10 @@ import org.openscreentime.ui.home.HomeScreen
 import org.openscreentime.ui.theme.OpenScreenTimeTheme
 import org.openscreentime.ui.usageaccess.UsageAccessScreen
 import org.openscreentime.ui.welcome.WelcomeScreen
+import org.openscreentime.downtime.DowntimeSchedule
+import org.openscreentime.downtime.DowntimeWindow
 import org.openscreentime.limits.AppLimit
+import org.openscreentime.ui.downtime.DowntimeScreen
 import org.openscreentime.ui.limits.AppPickerScreen
 import org.openscreentime.ui.limits.LimitEditorScreen
 import org.openscreentime.ui.limits.LimitListScreen
@@ -190,6 +193,52 @@ class ScreenshotTests {
     )
 
     @Test
+    fun downtime_off() = capture("downtime_off") { DowntimeFor(DowntimeSchedule(), pinSet = false) }
+
+    @Test
+    fun downtime_everyDay() = capture("downtime_every_day") { DowntimeFor(DowntimeSchedule(enabled = true)) }
+
+    @Test
+    @Config(qualifiers = "w411dp-h1300dp-xxhdpi")
+    fun downtime_customDays() = capture("downtime_custom_days") { DowntimeFor(customDowntime) }
+
+    @Test
+    @Config(qualifiers = "w411dp-h1300dp-night-xxhdpi")
+    fun downtime_customDays_dark() = capture("downtime_custom_days_dark", dark = true) { DowntimeFor(customDowntime) }
+
+    @Test
+    fun downtime_timePicker() = capture("downtime_time_picker") {
+        org.openscreentime.ui.downtime.TimePickerDialog(
+            title = "Starts",
+            initial = java.time.LocalTime.of(21, 0),
+            use24Hour = false,
+            onDismiss = {},
+            onConfirm = {},
+        )
+    }
+
+    private val customDowntime = DowntimeSchedule(enabled = true, sameEveryDay = false)
+        .withDay(java.time.DayOfWeek.FRIDAY, DowntimeWindow(java.time.LocalTime.of(23, 0), java.time.LocalTime.of(9, 0)))
+        .withDay(java.time.DayOfWeek.SATURDAY, DowntimeWindow(java.time.LocalTime.of(23, 30), java.time.LocalTime.of(9, 30)))
+        .withDay(java.time.DayOfWeek.SUNDAY, null)
+
+    @Composable
+    private fun DowntimeFor(schedule: DowntimeSchedule, pinSet: Boolean = true) {
+        val zone = java.time.ZoneOffset.UTC
+        val noon = SampleUsage.today.atTime(12, 0).atZone(zone).toInstant()
+        DowntimeScreen(
+            schedule = schedule,
+            status = schedule.status(noon, zone),
+            today = SampleUsage.today,
+            daysInOrder = (0L until 7L).map { java.time.DayOfWeek.SUNDAY.plus(it) },
+            pinSet = pinSet,
+            onChange = {},
+            onBack = {},
+            onSetPinClick = {},
+        )
+    }
+
+    @Test
     fun historyDialog() = capture("history_dialog") {
         HistoryLengthDialog(selected = HistoryLength.FourWeeks, onSelect = {}, onDismiss = {})
     }
@@ -198,6 +247,7 @@ class ScreenshotTests {
     private fun HomeFor(status: HomeStatus, dashboard: Dashboard = SampleUsage.dashboard()) {
         HomeScreen(
             limitCount = 2,
+            downtimeSummary = "Starts today at 9:00 PM",
             status = status,
             dashboard = dashboard,
             historyLength = HistoryLength.FourWeeks,
