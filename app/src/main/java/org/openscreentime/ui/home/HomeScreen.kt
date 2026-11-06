@@ -63,8 +63,10 @@ fun HomeScreen(
     onAllowUsageAccess: () -> Unit,
     onHistoryLengthChange: (HistoryLength) -> Unit,
     modifier: Modifier = Modifier,
+    pinSet: Boolean = false,
     onSelectDay: (LocalDate) -> Unit = {},
     onAppClick: (String) -> Unit = {},
+    onPinClick: () -> Unit = {},
 ) {
     var showHistoryDialog by rememberSaveable { mutableStateOf(false) }
 
@@ -99,6 +101,12 @@ fun HomeScreen(
                 title = stringResource(R.string.history_title),
                 summary = stringResource(historyLength.labelRes),
                 onClick = { showHistoryDialog = true },
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainer)
+            SettingsRow(
+                title = stringResource(R.string.pin_setting_title),
+                summary = stringResource(if (pinSet) R.string.pin_setting_on else R.string.pin_setting_off),
+                onClick = onPinClick,
             )
         }
         FootnoteText(stringResource(R.string.home_privacy_note))

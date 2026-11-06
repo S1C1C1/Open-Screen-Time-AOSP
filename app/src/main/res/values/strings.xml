@@ -60,6 +60,44 @@
     <string name="duration_minutes">%1$d min</string>
     <string name="duration_less_than_minute">Less than 1 min</string>
 
+    <!-- Screen time PIN -->
+    <string name="pin_setting_title">Screen time PIN</string>
+    <string name="pin_setting_off">Not set. Set a PIN to lock these settings.</string>
+    <string name="pin_setting_on">On. Tap to change the PIN.</string>
+    <string name="pin_intro_title">Set a screen time PIN</string>
+    <string name="pin_intro_body">The PIN locks screen time settings, so only someone who knows it can change them or turn screen time off.</string>
+    <string name="pin_intro_not_unlock_code">This PIN is different from the code you use to unlock your phone. Choose a PIN that the person using this phone doesn\'t know.</string>
+    <string name="pin_intro_forgot_warning">If you forget this PIN, the only way to remove it is to factory reset the phone, which erases all data.</string>
+    <string name="pin_intro_continue">Continue</string>
+    <string name="pin_enter">Enter screen time PIN</string>
+    <string name="pin_enter_current">Enter current PIN</string>
+    <string name="pin_choose">Choose a PIN</string>
+    <!-- e.g. "4 to 6 digits"; the plural follows the larger number -->
+    <plurals name="pin_length_hint">
+        <item quantity="one">%1$d to %2$d digit</item>
+        <item quantity="other">%1$d to %2$d digits</item>
+    </plurals>
+    <string name="pin_confirm">Enter the PIN again</string>
+    <string name="pin_next">Next</string>
+    <string name="pin_ok">OK</string>
+    <string name="pin_delete">Delete</string>
+    <string name="pin_wrong">Wrong PIN</string>
+    <plurals name="pin_wrong_tries_left">
+        <item quantity="one">Wrong PIN. %d try left before a wait.</item>
+        <item quantity="other">Wrong PIN. %d tries left before a wait.</item>
+    </plurals>
+    <string name="pin_wait">Too many wrong attempts. Try again in %1$s</string>
+    <string name="pin_mismatch">The PINs didn\'t match. Try again.</string>
+    <string name="pin_not_saved">The PIN wasn\'t saved. Please start again.</string>
+    <string name="pin_set">PIN set</string>
+    <string name="pin_changed">PIN changed</string>
+    <string name="pin_set_body">Screen time settings now need this PIN.</string>
+    <string name="pin_done">Done</string>
+    <plurals name="pin_digits_entered">
+        <item quantity="one">%d digit entered</item>
+        <item quantity="other">%d digits entered</item>
+    </plurals>
+
     <string name="cancel">Cancel</string>
     <string name="home_privacy_note">All screen time data stays on this phone. This app has no internet access.</string>
 </resources>

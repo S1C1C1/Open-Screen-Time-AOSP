@@ -1,5 +1,6 @@
 package org.openscreentime.pin
 
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.map
@@ -48,3 +49,9 @@ class FakePinStore : PinStore {
 fun testHasher(mac: KeyedMac = SoftwareMac()) = PinHasher(mac, iterations = 1_000)
 
 fun pin(text: String) = text.toCharArray()
+
+/** A PIN manager that does all its work immediately, for tests. */
+fun testPinManager(
+    store: FakePinStore = FakePinStore(),
+    clock: FakeDeviceClock = FakeDeviceClock(),
+) = PinManager(store, testHasher(), clock, Dispatchers.Unconfined)

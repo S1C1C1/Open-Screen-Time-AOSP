@@ -20,6 +20,9 @@ import kotlinx.coroutines.launch
 import org.openscreentime.OpenScreenTimeApplication
 import org.openscreentime.data.HistoryLength
 import org.openscreentime.data.SettingsRepository
+import org.openscreentime.pin.PinManager
+import org.openscreentime.ui.pin.PinFlowController
+import org.openscreentime.ui.pin.PinFlowKind
 import org.openscreentime.ui.dashboard.AppDetail
 import org.openscreentime.ui.dashboard.buildAppDetail
 import org.openscreentime.ui.dashboard.buildDashboard
@@ -40,10 +43,20 @@ class MainViewModel(
     private val usageAccessChecker: UsageAccessChecker,
     private val usageRepository: UsageRepository,
     private val appLabels: AppLabels,
+    private val pinManager: PinManager,
     private val clock: Clock = Clock.systemDefaultZone(),
     /** First day of the week, from the phone's region (Sunday in the US, Monday in most of Europe). */
     private val firstDayOfWeek: DayOfWeek = WeekFields.of(Locale.getDefault()).firstDayOfWeek,
 ) : ViewModel() {
+
+    /** The PIN screens. */
+    val pinFlow = PinFlowController(pinManager)
+
+    /**
+     * True after the PIN has been entered, until the app is left. While true,
+     * protected settings can be changed without asking again.
+     */
+    private val settingsUnlocked = MutableStateFlow(false)
 
     private val hasUsageAccess = MutableStateFlow(usageAccessChecker.hasUsageAccess())
     private val usageAccessGuideOpen = MutableStateFlow(false)
@@ -67,8 +80,9 @@ class MainViewModel(
         hasUsageAccess,
         usageAccessGuideOpen,
         dashboard,
-    ) { settings, hasAccess, guideOpen, dashboard ->
-        AppUiState(settings, hasAccess, guideOpen, dashboard)
+        pinManager.isPinSet,
+    ) { settings, hasAccess, guideOpen, dashboard, pinSet ->
+        AppUiState(settings, hasAccess, guideOpen, dashboard, pinSet)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, AppUiState())
 
     /**
@@ -99,21 +113,58 @@ class MainViewModel(
         viewModelScope.launch { settingsRepository.completeOnboarding(trackingEnabled = false) }
     }
 
-    // TODO(PIN step): turning tracking off must require the PIN once one is set.
     fun setTrackingEnabled(enabled: Boolean) {
-        viewModelScope.launch { settingsRepository.setTrackingEnabled(enabled) }
         if (enabled) {
+            // Turning screen time on only adds protection, so it never needs the PIN.
+            viewModelScope.launch { settingsRepository.setTrackingEnabled(true) }
             openGuideIfNeeded()
             syncUsage()
+        } else {
+            withPin { settingsRepository.setTrackingEnabled(false) }
         }
     }
 
-    // TODO(PIN step): changing settings must require the PIN once one is set.
-    fun setHistoryLength(length: HistoryLength) {
+    fun setHistoryLength(length: HistoryLength) = withPin {
+        settingsRepository.setHistoryLength(length)
+        // Apply a shorter setting right away rather than at the next background run.
+        usageRepository.deleteOldHistory(length)
+    }
+
+    /** Opens PIN setup, or PIN change if a PIN exists (which asks for the current PIN). */
+    fun onPinSettingClick() {
         viewModelScope.launch {
-            settingsRepository.setHistoryLength(length)
-            // Apply a shorter setting right away rather than at the next background run.
-            usageRepository.deleteOldHistory(length)
+            val kind = if (pinManager.isPinSet.first()) PinFlowKind.Change else PinFlowKind.Setup
+            pinFlow.start(kind)
+        }
+    }
+
+    fun submitPin() {
+        viewModelScope.launch { pinFlow.submit() }
+    }
+
+    /**
+     * Called when the app goes to the background: settings lock again, and
+     * any PIN screen closes and forgets what was typed.
+     */
+    fun onAppHidden() {
+        settingsUnlocked.value = false
+        pinFlow.cancel()
+    }
+
+    /**
+     * Runs [change] now if no PIN is set or settings are unlocked; otherwise
+     * asks for the PIN first and runs it only after the correct PIN.
+     */
+    private fun withPin(change: suspend () -> Unit) {
+        viewModelScope.launch {
+            if (settingsUnlocked.value || !pinManager.isPinSet.first()) {
+                change()
+            } else {
+                pinFlow.start(PinFlowKind.Verify) {
+                    settingsUnlocked.value = true
+                    viewModelScope.launch { change() }
+                }
+            }
         }
     }
 
@@ -168,6 +219,7 @@ class MainViewModel(
                     container.usageAccessChecker,
                     container.usageRepository,
                     container.appLabels,
+                    container.pinManager,
                 )
             }
         }

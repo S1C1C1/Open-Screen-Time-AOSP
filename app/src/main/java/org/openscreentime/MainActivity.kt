@@ -42,6 +42,13 @@ class MainActivity : ComponentActivity() {
         viewModel.onAppVisible()
     }
 
+    override fun onStop() {
+        super.onStop()
+        // Leaving the app locks settings again and closes any PIN screen.
+        // Not done while only rotating the screen, which stops and restarts the activity.
+        if (!isChangingConfigurations) viewModel.onAppHidden()
+    }
+
     private fun openUsageAccessSettings() {
         try {
             startActivity(usageAccessSettingsIntent(packageName))

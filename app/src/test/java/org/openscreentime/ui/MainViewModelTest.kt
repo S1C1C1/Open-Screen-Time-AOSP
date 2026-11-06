@@ -2,11 +2,18 @@ package org.openscreentime.ui
 
 import android.os.Looper
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
+import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.openscreentime.data.AppSettings
 import org.openscreentime.data.HistoryLength
+import org.openscreentime.pin.pin
+import org.openscreentime.pin.testPinManager
+import org.openscreentime.ui.pin.PinFlowKind
+import org.openscreentime.ui.pin.PinStep
 import org.openscreentime.usage.AppUsageTime
 import org.robolectric.Shadows.shadowOf
 import kotlinx.coroutines.launch
@@ -28,11 +35,14 @@ class MainViewModelTest {
     private val today = LocalDate.of(2026, 11, 5)
     private val clock = Clock.fixed(Instant.parse("2026-11-05T12:00:00Z"), zone)
 
+    private val pinManager = testPinManager()
+
     private fun newViewModel() = MainViewModel(
         settingsRepository = settings,
         usageAccessChecker = { accessGranted },
         usageRepository = usage,
         appLabels = { pkg -> "Label of $pkg" },
+        pinManager = pinManager,
         clock = clock,
         firstDayOfWeek = DayOfWeek.SUNDAY,
     )
@@ -251,5 +261,127 @@ class MainViewModelTest {
     @Test
     fun historyLengthDefaultsToFourWeeks() {
         assertEquals(HistoryLength.FourWeeks, newViewModel().currentState().historyLength)
+    }
+
+    // --- Settings protected by the PIN ---
+
+    private fun MainViewModel.enterPin(value: String) {
+        value.forEach(pinFlow::addDigit)
+        submitPin()
+        currentState()
+    }
+
+    private fun trackingOnWithPin(): MainViewModel {
+        accessGranted = true
+        runBlocking { pinManager.setInitialPin(pin("4826")) }
+        return newViewModel().also {
+            it.onWelcomeTurnOn()
+            it.currentState()
+        }
+    }
+
+    @Test
+    fun withoutAPinSettingsChangeStraightAway() {
+        accessGranted = true
+        val viewModel = newViewModel()
+        viewModel.onWelcomeTurnOn()
+        viewModel.setTrackingEnabled(false)
+
+        assertEquals(HomeStatus.TrackingOff, viewModel.currentState().homeStatus)
+        assertNull(viewModel.pinFlow.ui.value)
+    }
+
+    @Test
+    fun turningTrackingOffAsksForThePin() {
+        val viewModel = trackingOnWithPin()
+        viewModel.setTrackingEnabled(false)
+        viewModel.currentState()
+
+        assertEquals(PinFlowKind.Verify, viewModel.pinFlow.ui.value!!.kind)
+        assertEquals(HomeStatus.Ready, viewModel.currentState().homeStatus)
+
+        viewModel.enterPin("4826")
+        assertEquals(HomeStatus.TrackingOff, viewModel.currentState().homeStatus)
+    }
+
+    @Test
+    fun wrongPinDoesNotChangeTheSetting() {
+        val viewModel = trackingOnWithPin()
+        viewModel.setTrackingEnabled(false)
+        viewModel.currentState()
+        viewModel.enterPin("0000")
+
+        assertEquals(HomeStatus.Ready, viewModel.currentState().homeStatus)
+        assertEquals(PinStep.EnterCurrent, viewModel.pinFlow.ui.value!!.step)
+    }
+
+    @Test
+    fun cancellingThePinLeavesTheSettingAlone() {
+        val viewModel = trackingOnWithPin()
+        viewModel.setHistoryLength(HistoryLength.OneWeek)
+        viewModel.currentState()
+        viewModel.pinFlow.cancel()
+
+        assertEquals(HistoryLength.FourWeeks, viewModel.currentState().historyLength)
+        assertTrue(usage.deletedWith.isEmpty())
+    }
+
+    @Test
+    fun afterThePinFurtherChangesDoNotAskAgainUntilTheAppIsLeft() {
+        val viewModel = trackingOnWithPin()
+        viewModel.setHistoryLength(HistoryLength.OneWeek)
+        viewModel.currentState()
+        viewModel.enterPin("4826")
+        assertEquals(HistoryLength.OneWeek, viewModel.currentState().historyLength)
+
+        viewModel.setHistoryLength(HistoryLength.OneYear)
+        assertEquals(HistoryLength.OneYear, viewModel.currentState().historyLength)
+        assertNull(viewModel.pinFlow.ui.value)
+
+        // Leaving the app locks settings again.
+        viewModel.onAppHidden()
+        viewModel.setHistoryLength(HistoryLength.ThreeMonths)
+        assertEquals(HistoryLength.OneYear, viewModel.currentState().historyLength)
+        assertEquals(PinFlowKind.Verify, viewModel.pinFlow.ui.value!!.kind)
+    }
+
+    @Test
+    fun turningTrackingOnNeverNeedsThePin() {
+        val viewModel = trackingOnWithPin()
+        viewModel.setTrackingEnabled(false)
+        viewModel.currentState()
+        viewModel.enterPin("4826")
+        viewModel.onAppHidden()
+
+        viewModel.setTrackingEnabled(true)
+        assertEquals(HomeStatus.Ready, viewModel.currentState().homeStatus)
+        assertNull(viewModel.pinFlow.ui.value)
+    }
+
+    @Test
+    fun pinSettingOpensSetupOrChange() {
+        val viewModel = newViewModel()
+        viewModel.onPinSettingClick()
+        viewModel.currentState()
+        assertEquals(PinFlowKind.Setup, viewModel.pinFlow.ui.value!!.kind)
+        assertEquals(false, viewModel.currentState().pinSet)
+
+        viewModel.pinFlow.cancel()
+        runBlocking { pinManager.setInitialPin(pin("4826")) }
+        viewModel.onPinSettingClick()
+        assertEquals(PinFlowKind.Change, viewModel.pinFlow.ui.value!!.kind)
+        assertEquals(true, viewModel.currentState().pinSet)
+    }
+
+    @Test
+    fun leavingTheAppClosesAnOpenPinScreen() {
+        val viewModel = trackingOnWithPin()
+        viewModel.setTrackingEnabled(false)
+        viewModel.currentState()
+        "48".forEach(viewModel.pinFlow::addDigit)
+
+        viewModel.onAppHidden()
+        assertNull(viewModel.pinFlow.ui.value)
+        assertEquals(HomeStatus.Ready, viewModel.currentState().homeStatus)
     }
 }
