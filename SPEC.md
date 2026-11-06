@@ -153,7 +153,7 @@ These are always enforced once a PIN is set, regardless of the options above:
 
 - The same app can be set as the device owner with an ADB command on a freshly reset phone.
 - It uses Android's device policy APIs for suspending apps and applying restrictions.
-- Some protections may be weaker than in system app mode. These should be documented.
+- Some protections may be weaker than in system app mode. These are documented in `docs/device-owner-limitations.md`.
 - Design the code so the enforcement layer can be swapped between the two modes. System app mode remains the main target, but device-owner mode is built first (phase 2) because it can be tested on an ordinary phone; system app mode follows in phase 3 using the same rules.
 - Setup: on a freshly reset phone with no accounts, run `adb shell dpm set-device-owner org.openscreentime/.admin.ScreenTimeAdmin`. Step-by-step instructions are in `docs/device-owner-setup.md`.
 - Removal: **Remove device owner** in the app (PIN required) gives up device-owner control so the app can be uninstalled. Factory reset also removes it.
@@ -206,7 +206,7 @@ These are always enforced once a PIN is set, regardless of the options above:
 
 ## Test checklist
 
-Testers should confirm each item on a real device or a GrapheneOS emulator build:
+Testers should confirm each item on a real device or a GrapheneOS emulator build. For device-owner mode, `docs/phase-2-test-checklist.md` turns this list into step-by-step tests with a results table.
 
 - [ ] Usage times in the dashboard roughly match actual use.
 - [ ] A 15-minute limit blocks the app at 15 minutes, in each limit mode.

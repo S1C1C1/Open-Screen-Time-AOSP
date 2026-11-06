@@ -4,7 +4,7 @@ An open source screen time and parental controls system app for custom Android R
 
 GrapheneOS is the first target. See [SPEC.md](SPEC.md) for the full plan.
 
-**Status:** phase 1 is complete (dashboard, limits, downtime, always allowed apps, PIN and block screen previews). Phase 2, real blocking in device-owner mode, is in progress.
+**Status:** phase 1 is complete (dashboard, limits, downtime, always allowed apps, PIN and block screen previews). Phase 2 (real blocking, restrictions and self-protection in device-owner mode) is built and ready for device testing.
 
 ## Privacy
 
@@ -22,7 +22,11 @@ Requires Android 14 or newer.
 
 ## Testing real blocking
 
-Phase 1 builds can only preview block screens. To test real blocking (phase 2), the app has to be made the phone's **device owner**. See [docs/device-owner-setup.md](docs/device-owner-setup.md).
+Phase 1 builds can only preview block screens. To test real blocking (phase 2), the app has to be made the phone's **device owner**:
+
+- [docs/device-owner-setup.md](docs/device-owner-setup.md): how to set up a test phone.
+- [docs/phase-2-test-checklist.md](docs/phase-2-test-checklist.md): what to test, with a results table.
+- [docs/device-owner-limitations.md](docs/device-owner-limitations.md): what device-owner mode can't protect.
 
 ## Building on a computer
 
