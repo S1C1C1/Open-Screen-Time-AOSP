@@ -24,6 +24,11 @@ class FakeUsageRepository : UsageRepository {
         syncCount++
     }
 
+    var syncTodayCount = 0
+    override suspend fun syncToday() {
+        syncTodayCount++
+    }
+
     override suspend fun deleteOldHistory(length: HistoryLength) {
         deletedWith += length
     }

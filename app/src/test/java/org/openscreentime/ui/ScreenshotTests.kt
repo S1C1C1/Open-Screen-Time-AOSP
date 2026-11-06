@@ -357,6 +357,19 @@ class ScreenshotTests {
     }
 
     @Test
+    fun dashboard_notificationPrompt() = capture("dashboard_notification_prompt") {
+        HomeScreen(
+            status = HomeStatus.Ready,
+            dashboard = SampleUsage.dashboard(),
+            historyLength = HistoryLength.FourWeeks,
+            onTrackingChange = {},
+            onAllowUsageAccess = {},
+            onHistoryLengthChange = {},
+            showNotificationPrompt = true,
+        )
+    }
+
+    @Test
     fun historyDialog() = capture("history_dialog") {
         HistoryLengthDialog(selected = HistoryLength.FourWeeks, onSelect = {}, onDismiss = {})
     }

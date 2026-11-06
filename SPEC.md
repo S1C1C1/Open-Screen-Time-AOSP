@@ -49,7 +49,7 @@ It is designed to ship as a **privileged system app** built into a ROM, with Gra
 - Optionally use different limits on weekdays and weekends. For now, the weekend is Saturday and Sunday; choosing other weekend days may come later.
 - A limit can be set for any app in the app drawer, including apps not used yet, from the app's page or from the App limits list.
 - Limits can be set before a PIN exists, so adults can use them as a nudge. The App limits screen then reminds the user to set a PIN. Once a PIN is set, adding, changing or removing a limit requires it.
-- Show a notification 5 minutes before a limit is reached. *(Phase 2: needs background usage monitoring.)*
+- Show a notification 5 minutes before a limit is reached: once per app per day, not for always allowed apps. Checked every 30 seconds while the screen is on, so it may arrive up to 30 seconds late.
 - When the limit is reached, the app is blocked (see **Limit behavior**).
 - Limits reset at midnight local time.
 
@@ -61,7 +61,8 @@ It is designed to ship as a **privileged system app** built into a ROM, with Gra
 - A window that ends earlier than it starts runs overnight and belongs to the day it starts: Friday 9:00 PM–7:00 AM covers Friday night into Saturday morning. The start time is included; the end time is not. Start and end cannot be the same.
 - Back-to-back or overlapping windows count as one stretch. Daylight saving changes make that night an hour longer or shorter.
 - As with limits, downtime can be set before a PIN exists, with a reminder to set one; once a PIN is set, changes require it.
-- Show a notification 5 minutes before downtime starts. *(Phase 2.)*
+- Show a notification 5 minutes before downtime starts, once for each start.
+- Warnings need notification permission; the dashboard asks for it once there is a limit or downtime.
 
 ### 4. Always allowed apps
 
@@ -149,7 +150,7 @@ These are always enforced once a PIN is set, regardless of the options above:
 - Design the code so the enforcement layer can be swapped between the two modes. System app mode remains the main target, but device-owner mode is built first (phase 2) because it can be tested on an ordinary phone; system app mode follows in phase 3 using the same rules.
 - Setup: on a freshly reset phone with no accounts, run `adb shell dpm set-device-owner org.openscreentime/.admin.ScreenTimeAdmin`. Step-by-step instructions are in `docs/device-owner-setup.md`.
 - Removal: **Remove device owner** in the app (PIN required) gives up device-owner control so the app can be uninstalled. Factory reset also removes it.
-- Background tracking runs as a foreground service with a quiet, low-priority "Screen time is on" notification, which Android requires for a service that runs continuously. It pauses while the screen is off.
+- Background tracking runs as a foreground service with a quiet, low-priority "Screen time is on" notification, which Android requires for a service that runs continuously. It checks today's usage every 30 seconds while the screen is on, does nothing while the screen is off, and stops itself when there are no limits and downtime is off. It starts when the app is opened, after a restart and after an update.
 - Device-owner mode can't lock usage access on. If usage access is turned off, the app fails safe: every app except always allowed apps is blocked until it is turned back on.
 - Safe mode is blocked while a PIN is set, because safe mode would switch off a device-owner app. Factory reset is never blocked.
 - Lifting a restriction with the PIN lasts 15 minutes, then the restriction switches back on by itself.

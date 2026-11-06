@@ -77,6 +77,8 @@ fun HomeScreen(
     onLimitModeChange: (LimitMode) -> Unit = {},
     blockingActive: Boolean = false,
     onBlockingClick: () -> Unit = {},
+    showNotificationPrompt: Boolean = false,
+    onAllowNotifications: () -> Unit = {},
     onSelectDay: (LocalDate) -> Unit = {},
     onAppClick: (String) -> Unit = {},
     onPinClick: () -> Unit = {},
@@ -85,6 +87,14 @@ fun HomeScreen(
     var showModeDialog by rememberSaveable { mutableStateOf(false) }
 
     SettingsScaffold(title = stringResource(R.string.home_title), modifier = modifier) {
+        if (showNotificationPrompt) {
+            SettingsCard {
+                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.notify_prompt), style = MaterialTheme.typography.bodyMedium)
+                    Button(onClick = onAllowNotifications) { Text(stringResource(R.string.notify_prompt_allow)) }
+                }
+            }
+        }
         when (status) {
             HomeStatus.TrackingOff -> StatusCard(
                 title = stringResource(R.string.home_tracking_off_title),

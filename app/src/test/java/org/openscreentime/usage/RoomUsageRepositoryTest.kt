@@ -78,6 +78,12 @@ class RoomUsageRepositoryTest {
     }
 
     @Test
+    fun syncTodayOnlyReadsToday() = runBlocking {
+        repository.syncToday()
+        assertEquals(today.atStartOfDay(zone).toInstant() to now, requestedWindow)
+    }
+
+    @Test
     fun syncNeverLowersASavedDay() = runBlocking {
         // Saved earlier, while Android still had that day's events.
         val lastWeek = today.minusDays(6)
