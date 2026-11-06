@@ -105,6 +105,8 @@ These are always enforced once a PIN is set, regardless of the options above:
 - Waits are timed by the phone's time since start, so changing the date, time or time zone doesn't shorten them. If the phone restarts during a wait, the wait starts over at full length.
 - Storage: PBKDF2-HMAC-SHA256 with a random 16-byte salt and 100,000 rounds, then sealed with an HMAC-SHA256 key kept in the Android hardware keystore (StrongBox when available). The key can't be exported, so saved data can't be used to guess the PIN on another device.
 - Changing the PIN requires the current PIN.
+- After the PIN is entered, protected settings stay unlocked until the user leaves the app (it goes to the background or is closed). Then they lock again. Turning screen time on never needs the PIN; turning it off does.
+- The PIN is typed on the app's own number pad, never the phone's keyboard, so keyboard apps can't see it. PIN screens block screenshots, screen recording and screen sharing, and are hidden in the recent apps view.
 
 ### 9. Forgotten PIN and factory reset
 

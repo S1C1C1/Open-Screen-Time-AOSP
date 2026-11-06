@@ -1,5 +1,6 @@
 package org.openscreentime.pin
 
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.sync.Mutex
@@ -58,6 +59,8 @@ class PinManager(
     private val store: PinStore,
     private val hasher: PinHasher,
     private val clock: DeviceClock,
+    /** Where the slow hashing runs. Tests pass a dispatcher that runs it straight away. */
+    private val hashDispatcher: CoroutineDispatcher = Dispatchers.Default,
 ) {
     // One check at a time, so two quick guesses can't both slip past the counter.
     private val mutex = Mutex()
@@ -160,5 +163,5 @@ class PinManager(
     }
 
     /** Hashing is deliberately slow, so keep it off the main thread. */
-    private suspend fun <T> hash(block: () -> T): T = withContext(Dispatchers.Default) { block() }
+    private suspend fun <T> hash(block: () -> T): T = withContext(hashDispatcher) { block() }
 }

@@ -18,12 +18,15 @@ import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import org.openscreentime.ui.appdetail.AppDetailScreen
 import org.openscreentime.ui.home.HomeScreen
+import org.openscreentime.ui.pin.PinFlowActions
+import org.openscreentime.ui.pin.PinFlowScreen
 import org.openscreentime.ui.usageaccess.UsageAccessScreen
 import org.openscreentime.ui.welcome.WelcomeScreen
 
 /**
  * Shows the right screen for the current state: welcome and usage access
- * setup first, then the dashboard and the screens reached from it.
+ * setup first, then the dashboard and the screens reached from it. PIN
+ * screens appear on top of whatever is showing.
  */
 @Composable
 fun OpenScreenTimeApp(
@@ -31,26 +34,48 @@ fun OpenScreenTimeApp(
     onOpenUsageAccessSettings: () -> Unit,
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
+    val pinUi by viewModel.pinFlow.ui.collectAsStateWithLifecycle()
 
-    when (state.screen) {
-        // Settings load in a moment; show a plain background meanwhile.
-        AppScreen.Loading -> Box(
-            Modifier
-                .fillMaxSize()
-                .background(MaterialTheme.colorScheme.surfaceContainer),
-        )
-        AppScreen.Welcome -> WelcomeScreen(
-            onTurnOn = viewModel::onWelcomeTurnOn,
-            onNotNow = viewModel::onWelcomeNotNow,
-        )
-        AppScreen.UsageAccessGuide -> {
-            BackHandler(onBack = viewModel::closeUsageAccessGuide)
-            UsageAccessScreen(
-                onOpenSettings = onOpenUsageAccessSettings,
-                onBack = viewModel::closeUsageAccessGuide,
+    Box(Modifier.fillMaxSize()) {
+        when (state.screen) {
+            // Settings load in a moment; show a plain background meanwhile.
+            AppScreen.Loading -> Box(
+                Modifier
+                    .fillMaxSize()
+                    .background(MaterialTheme.colorScheme.surfaceContainer),
+            )
+            AppScreen.Welcome -> WelcomeScreen(
+                onTurnOn = viewModel::onWelcomeTurnOn,
+                onNotNow = viewModel::onWelcomeNotNow,
+            )
+            AppScreen.UsageAccessGuide -> {
+                BackHandler(onBack = viewModel::closeUsageAccessGuide)
+                UsageAccessScreen(
+                    onOpenSettings = onOpenUsageAccessSettings,
+                    onBack = viewModel::closeUsageAccessGuide,
+                )
+            }
+            AppScreen.Home -> MainNavigation(viewModel, state)
+        }
+
+        pinUi?.let { ui ->
+            val flow = viewModel.pinFlow
+            // Declared last, so Back closes the PIN screen before anything underneath.
+            BackHandler(onBack = flow::cancel)
+            PinFlowScreen(
+                ui = ui,
+                actions = remember(flow) {
+                    PinFlowActions(
+                        onDigit = flow::addDigit,
+                        onDelete = flow::deleteDigit,
+                        onSubmit = viewModel::submitPin,
+                        onContinueIntro = flow::continueFromIntro,
+                        onWaitFinished = flow::waitFinished,
+                        onClose = flow::cancel,
+                    )
+                },
             )
         }
-        AppScreen.Home -> MainNavigation(viewModel, state)
     }
 }
 
@@ -64,11 +89,13 @@ private fun MainNavigation(viewModel: MainViewModel, state: AppUiState) {
                 status = state.homeStatus,
                 dashboard = state.dashboard,
                 historyLength = state.historyLength,
+                pinSet = state.pinSet,
                 onTrackingChange = viewModel::setTrackingEnabled,
                 onAllowUsageAccess = viewModel::openUsageAccessGuide,
                 onHistoryLengthChange = viewModel::setHistoryLength,
                 onSelectDay = viewModel::selectDay,
                 onAppClick = { packageName -> navController.navigate(Routes.appDetail(packageName)) },
+                onPinClick = viewModel::onPinSettingClick,
             )
         }
         composable(

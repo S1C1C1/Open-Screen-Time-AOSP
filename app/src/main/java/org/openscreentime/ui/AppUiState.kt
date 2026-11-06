@@ -28,6 +28,7 @@ data class AppUiState(
     val usageAccessGuideOpen: Boolean = false,
     /** The usage dashboard, or null before usage has been read. */
     val dashboard: Dashboard? = null,
+    val pinSet: Boolean = false,
 ) {
     val historyLength: HistoryLength
         get() = settings?.historyLength ?: HistoryLength.Default

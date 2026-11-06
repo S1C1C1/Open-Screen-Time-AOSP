@@ -11,6 +11,7 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.openscreentime.data.AppSettings
+import org.openscreentime.pin.testPinManager
 import org.openscreentime.ui.theme.OpenScreenTimeTheme
 import org.robolectric.annotation.Config
 import java.time.Clock
@@ -32,6 +33,7 @@ class NavigationTest {
             usageAccessChecker = { true },
             usageRepository = usage,
             appLabels = SampleUsage.labels,
+            pinManager = testPinManager(),
             clock = Clock.fixed(SampleUsage.today.atTime(12, 0).toInstant(ZoneOffset.UTC), ZoneOffset.UTC),
             firstDayOfWeek = SampleUsage.firstDayOfWeek,
         )

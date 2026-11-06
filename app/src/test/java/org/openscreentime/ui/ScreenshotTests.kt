@@ -17,7 +17,14 @@ import org.openscreentime.ui.home.HomeScreen
 import org.openscreentime.ui.theme.OpenScreenTimeTheme
 import org.openscreentime.ui.usageaccess.UsageAccessScreen
 import org.openscreentime.ui.welcome.WelcomeScreen
+import org.openscreentime.ui.pin.PinFlowActions
+import org.openscreentime.ui.pin.PinFlowKind
+import org.openscreentime.ui.pin.PinFlowScreen
+import org.openscreentime.ui.pin.PinFlowUi
+import org.openscreentime.ui.pin.PinMessage
+import org.openscreentime.ui.pin.PinStep
 import org.robolectric.annotation.Config
+import java.time.Duration
 
 /**
  * Screenshot tests let the UI be reviewed without a phone. The reference
@@ -86,6 +93,38 @@ class ScreenshotTests {
     @Test
     @Config(qualifiers = "+night")
     fun appDetail_dark() = capture("app_detail_dark", dark = true) { BrowserDetail() }
+
+    @Test
+    fun pin_intro() = capture("pin_intro") { PinFor(PinFlowUi(PinFlowKind.Setup, PinStep.Intro)) }
+
+    @Test
+    fun pin_choose() = capture("pin_choose") {
+        PinFor(PinFlowUi(PinFlowKind.Setup, PinStep.EnterNew, digitCount = 2))
+    }
+
+    @Test
+    fun pin_confirmMismatch() = capture("pin_mismatch") {
+        PinFor(PinFlowUi(PinFlowKind.Setup, PinStep.EnterNew, message = PinMessage.Mismatch))
+    }
+
+    @Test
+    fun pin_verifyWrong() = capture("pin_wrong") {
+        PinFor(PinFlowUi(PinFlowKind.Verify, PinStep.EnterCurrent, digitCount = 0, message = PinMessage.WrongPin(2)))
+    }
+
+    @Test
+    @Config(qualifiers = "+night")
+    fun pin_verifyWaiting_dark() = capture("pin_waiting_dark", dark = true) {
+        PinFor(PinFlowUi(PinFlowKind.Verify, PinStep.EnterCurrent, waitRemaining = Duration.ofMinutes(4).plusSeconds(32)))
+    }
+
+    @Test
+    fun pin_finished() = capture("pin_finished") { PinFor(PinFlowUi(PinFlowKind.Setup, PinStep.Finished)) }
+
+    @Composable
+    private fun PinFor(ui: PinFlowUi) {
+        PinFlowScreen(ui, PinFlowActions({}, {}, {}, {}, {}, {}))
+    }
 
     @Test
     fun historyDialog() = capture("history_dialog") {
