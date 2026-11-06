@@ -33,11 +33,18 @@
         <string name="home_use_screen_time">Use screen time</string>
     <string name="home_use_screen_time_summary">Track how long each app is used</string>
 
-    <!-- Today (temporary summary until the dashboard) -->
-    <string name="today_title">Today</string>
-    <string name="today_most_used">Most used</string>
-    <string name="today_no_usage">No app use recorded yet today.</string>
-    <string name="today_dashboard_coming">A full dashboard with weekly charts is coming in an upcoming test build.</string>
+    <!-- Dashboard -->
+    <string name="dashboard_today">Today</string>
+    <string name="dashboard_no_usage">No app use recorded on this day.</string>
+    <string name="dashboard_settings_header">Settings</string>
+    <!-- Read aloud for a bar in the week chart, e.g. "Thursday, 3 hr 17 min" -->
+    <string name="chart_bar_description">%1$s, %2$s</string>
+
+    <!-- App details -->
+    <string name="app_detail_daily_average">Daily average this week: %1$s</string>
+    <string name="app_limit_title">App limit</string>
+    <string name="app_limit_none">No limit</string>
+    <string name="app_limit_coming">App limits are coming in an upcoming test build.</string>
 
     <!-- Usage history setting -->
     <string name="history_title">Keep usage history</string>

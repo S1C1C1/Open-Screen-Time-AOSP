@@ -6,8 +6,10 @@ import org.openscreentime.data.DataStoreSettingsRepository
 import org.openscreentime.data.SettingsRepository
 import org.openscreentime.data.UsageDatabase
 import org.openscreentime.data.settingsDataStore
+import org.openscreentime.usage.AppIcons
 import org.openscreentime.usage.AppLabels
 import org.openscreentime.usage.AppOpsUsageAccessChecker
+import org.openscreentime.usage.PackageManagerAppIcons
 import org.openscreentime.usage.PackageManagerAppLabels
 import org.openscreentime.usage.RoomUsageRepository
 import org.openscreentime.usage.SystemUsageEventSource
@@ -25,6 +27,8 @@ class AppContainer(context: Context) {
     val usageAccessChecker: UsageAccessChecker = AppOpsUsageAccessChecker(appContext)
 
     val appLabels: AppLabels = PackageManagerAppLabels(appContext.packageManager)
+
+    val appIcons: AppIcons = PackageManagerAppIcons(appContext.packageManager)
 
     private val database: UsageDatabase by lazy {
         Room.databaseBuilder(appContext, UsageDatabase::class.java, "usage.db").build()

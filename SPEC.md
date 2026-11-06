@@ -34,12 +34,13 @@ It is designed to ship as a **privileged system app** built into a ROM, with Gra
 
 ### 1. Usage dashboard
 
-- Total screen time for today, with a daily bar chart for the current week.
+- Total screen time for today, with a daily bar chart for the current week. The week is the calendar week, starting on the first day used by the phone's region (for example Sunday in the US, Monday in most of Europe).
+- Tapping a day in the chart shows that day's total and app list. Coming back to the app returns to today.
 - Time on the home screen (launcher) is not counted, matching Digital Wellbeing and iOS Screen Time. Time in the screen time app itself is counted.
 - An app counts as used while one of its screens is in the foreground. Turning the screen off or locking the phone ends use. Two apps in split screen are both counted. Use crossing midnight is split between the two days.
 - A list of apps sorted by usage, showing time used today.
-- Tapping an app shows its daily usage over the week and its current limit, if any.
-- Optional extras if they're straightforward: number of unlocks, notifications per app.
+- Tapping an app shows its daily usage over the week, its daily average for the week so far (including today), and its current limit, if any.
+- Optional extras, deferred until after phase 1: number of unlocks, notifications per app (needs an extra special permission).
 - **History length is chosen by the user** in settings: 1 week, 4 weeks, 3 months (90 days), or 1 year. The default is 4 weeks. The chosen number of days includes today.
 
 ### 2. Per-app time limits
