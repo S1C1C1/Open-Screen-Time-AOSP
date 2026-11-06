@@ -29,6 +29,8 @@ data class AppUiState(
     /** The usage dashboard, or null before usage has been read. */
     val dashboard: Dashboard? = null,
     val pinSet: Boolean = false,
+    /** How many apps have a limit. */
+    val limitCount: Int = 0,
 ) {
     val historyLength: HistoryLength
         get() = settings?.historyLength ?: HistoryLength.Default

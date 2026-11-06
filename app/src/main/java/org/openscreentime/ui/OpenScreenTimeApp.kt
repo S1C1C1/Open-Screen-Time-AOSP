@@ -17,7 +17,12 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import org.openscreentime.ui.appdetail.AppDetailScreen
+import kotlinx.coroutines.flow.map
+import org.openscreentime.limits.AppLimit
 import org.openscreentime.ui.home.HomeScreen
+import org.openscreentime.ui.limits.AppPickerScreen
+import org.openscreentime.ui.limits.LimitEditorScreen
+import org.openscreentime.ui.limits.LimitListScreen
 import org.openscreentime.ui.pin.PinFlowActions
 import org.openscreentime.ui.pin.PinFlowScreen
 import org.openscreentime.ui.usageaccess.UsageAccessScreen
@@ -96,7 +101,53 @@ private fun MainNavigation(viewModel: MainViewModel, state: AppUiState) {
                 onSelectDay = viewModel::selectDay,
                 onAppClick = { packageName -> navController.navigate(Routes.appDetail(packageName)) },
                 onPinClick = viewModel::onPinSettingClick,
+                limitCount = state.limitCount,
+                onLimitsClick = { navController.navigate(Routes.LIMITS) },
             )
+        }
+        composable(Routes.LIMITS) {
+            val limited by viewModel.limitedApps.collectAsStateWithLifecycle()
+            LimitListScreen(
+                apps = limited,
+                pinSet = state.pinSet,
+                onBack = { navController.popBackStack() },
+                onAppClick = { navController.navigate(Routes.limitEditor(it)) },
+                onAddClick = { navController.navigate(Routes.ADD_LIMIT) },
+                onSetPinClick = viewModel::startPinSetup,
+            )
+        }
+        composable(Routes.ADD_LIMIT) {
+            val apps by remember { viewModel.appsWithoutLimit() }.collectAsStateWithLifecycle(initialValue = emptyList())
+            AppPickerScreen(
+                apps = apps,
+                onBack = { navController.popBackStack() },
+                onAppClick = { packageName ->
+                    // Replace the picker, so Back from the editor returns to the list.
+                    navController.navigate(Routes.limitEditor(packageName)) {
+                        popUpTo(Routes.ADD_LIMIT) { inclusive = true }
+                    }
+                },
+            )
+        }
+        composable(
+            route = Routes.LIMIT_EDITOR,
+            arguments = listOf(navArgument(Routes.ARG_PACKAGE) { type = NavType.StringType }),
+        ) { entry ->
+            val packageName = entry.arguments?.getString(Routes.ARG_PACKAGE).orEmpty()
+            // Wait for the saved limit before showing the editor, so it starts from the right values.
+            val current by remember(packageName) { viewModel.limitFor(packageName).map { LoadedLimit(it) } }
+                .collectAsStateWithLifecycle(initialValue = null)
+            current?.let { loaded ->
+                LimitEditorScreen(
+                    packageName = packageName,
+                    label = remember(packageName) { viewModel.labelFor(packageName) },
+                    current = loaded.limit,
+                    onBack = { navController.popBackStack() },
+                    onSave = { limit ->
+                        viewModel.saveLimit(packageName, limit) { navController.popBackStack() }
+                    },
+                )
+            }
         }
         composable(
             route = Routes.APP_DETAIL,
@@ -105,7 +156,11 @@ private fun MainNavigation(viewModel: MainViewModel, state: AppUiState) {
             val packageName = entry.arguments?.getString(Routes.ARG_PACKAGE).orEmpty()
             val detail by remember(packageName) { viewModel.appDetail(packageName) }
                 .collectAsStateWithLifecycle(initialValue = null)
-            AppDetailScreen(detail = detail, onBack = { navController.popBackStack() })
+            AppDetailScreen(
+                detail = detail,
+                onBack = { navController.popBackStack() },
+                onLimitClick = { navController.navigate(Routes.limitEditor(packageName)) },
+            )
         }
     }
 }
@@ -115,5 +170,13 @@ private object Routes {
     const val ARG_PACKAGE = "packageName"
     const val APP_DETAIL = "app/{$ARG_PACKAGE}"
 
+    const val LIMITS = "limits"
+    const val ADD_LIMIT = "limits/add"
+    const val LIMIT_EDITOR = "limits/edit/{$ARG_PACKAGE}"
+
     fun appDetail(packageName: String) = "app/${Uri.encode(packageName)}"
+    fun limitEditor(packageName: String) = "limits/edit/${Uri.encode(packageName)}"
 }
+
+/** Wraps a limit that may be null, to tell "loaded, no limit" apart from "still loading". */
+private class LoadedLimit(val limit: AppLimit?)

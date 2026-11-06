@@ -43,5 +43,5 @@ object SampleUsage {
     )
 
     fun dashboard(selectedDay: LocalDate? = null, usage: Map<LocalDate, List<AppUsageTime>> = usageByDay): Dashboard =
-        buildDashboard(usage, today, selectedDay, firstDayOfWeek, labels)
+        buildDashboard(usage, today, selectedDay, firstDayOfWeek, labels, limitedPackages = setOf("browser", "video"))
 }

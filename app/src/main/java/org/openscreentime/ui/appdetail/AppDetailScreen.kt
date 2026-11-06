@@ -1,5 +1,6 @@
 package org.openscreentime.ui.appdetail
 
+import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.Row
@@ -22,6 +23,7 @@ import org.openscreentime.ui.components.SettingsScaffold
 import org.openscreentime.ui.components.WeekBarChart
 import org.openscreentime.ui.dashboard.AppDetail
 import org.openscreentime.ui.format.formatDuration
+import org.openscreentime.ui.format.formatLimit
 
 /** One app's usage this week and its limit. */
 @Composable
@@ -29,6 +31,7 @@ fun AppDetailScreen(
     detail: AppDetail?,
     onBack: () -> Unit,
     modifier: Modifier = Modifier,
+    onLimitClick: () -> Unit = {},
 ) {
     val resources = LocalResources.current
     SettingsScaffold(title = detail?.label.orEmpty(), onBack = onBack, modifier = modifier) {
@@ -66,13 +69,32 @@ fun AppDetailScreen(
             }
         }
         SettingsCard {
-            // Becomes tappable when app limits are added.
+            val limit = detail.limit
+            val timeLeft = detail.timeLeftToday
             ListItem(
+                modifier = Modifier.clickable(onClick = onLimitClick),
                 headlineContent = { Text(stringResource(R.string.app_limit_title)) },
-                supportingContent = { Text(stringResource(R.string.app_limit_none)) },
+                supportingContent = {
+                    Text(if (limit == null) stringResource(R.string.app_limit_none) else formatLimit(limit, resources))
+                },
+                trailingContent = if (timeLeft != null) {
+                    {
+                        Text(
+                            text = if (timeLeft.isZero) {
+                                stringResource(R.string.app_limit_reached)
+                            } else {
+                                stringResource(R.string.app_limit_time_left, formatDuration(timeLeft, resources))
+                            },
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = if (timeLeft.isZero) MaterialTheme.colorScheme.error else MaterialTheme.colorScheme.primary,
+                        )
+                    }
+                } else {
+                    null
+                },
                 colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceBright),
             )
         }
-        FootnoteText(stringResource(R.string.app_limit_coming))
+        if (detail.limit != null) FootnoteText(stringResource(R.string.app_limit_blocking_coming))
     }
 }

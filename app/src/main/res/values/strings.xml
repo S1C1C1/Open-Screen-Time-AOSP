@@ -44,7 +44,41 @@
     <string name="app_detail_daily_average">Daily average this week: %1$s</string>
     <string name="app_limit_title">App limit</string>
     <string name="app_limit_none">No limit</string>
-    <string name="app_limit_coming">App limits are coming in an upcoming test build.</string>
+    <string name="app_limit_time_left">%1$s left today</string>
+    <string name="app_limit_reached">Limit reached for today</string>
+    <string name="app_limit_blocking_coming">Blocking apps when their limit is reached comes in a later test build.</string>
+
+    <!-- App limits -->
+    <string name="limits_title">App limits</string>
+    <string name="limits_none">No limits</string>
+    <plurals name="limits_count">
+        <item quantity="one">%d app</item>
+        <item quantity="other">%d apps</item>
+    </plurals>
+    <string name="limits_pin_reminder">Set a PIN so only you can change these limits.</string>
+    <string name="limits_set_pin">Set PIN</string>
+    <string name="limits_add">Add app limit</string>
+    <string name="limits_reset_note">Limits reset at midnight.</string>
+    <string name="limits_choose_app">Choose an app</string>
+    <string name="limits_search">Search apps</string>
+    <string name="limits_no_apps_found">No apps found.</string>
+    <string name="limits_limit_this_app">Limit this app</string>
+    <string name="limits_every_day">Every day</string>
+    <string name="limits_weekdays">Weekdays</string>
+    <string name="limits_weekends">Saturday and Sunday</string>
+    <string name="limits_different_weekends">Different limit on weekends</string>
+    <string name="limits_hours">Hours</string>
+    <string name="limits_minutes">Minutes</string>
+    <plurals name="limits_hours_value">
+        <item quantity="one">%d hr</item>
+        <item quantity="other">%d hr</item>
+    </plurals>
+    <string name="limits_less">Less: %1$s</string>
+    <string name="limits_more">More: %1$s</string>
+    <string name="limits_save">Save</string>
+    <string name="limits_has_limit">Has an app limit</string>
+    <string name="limit_every_day">%1$s a day</string>
+    <string name="limit_weekday_weekend">%1$s on weekdays, %2$s on weekends</string>
 
     <!-- Usage history setting -->
     <string name="history_title">Keep usage history</string>

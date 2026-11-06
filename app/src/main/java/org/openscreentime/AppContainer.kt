@@ -6,6 +6,8 @@ import org.openscreentime.data.DataStoreSettingsRepository
 import org.openscreentime.data.SettingsRepository
 import org.openscreentime.data.UsageDatabase
 import org.openscreentime.data.settingsDataStore
+import org.openscreentime.limits.LimitRepository
+import org.openscreentime.limits.RoomLimitRepository
 import org.openscreentime.pin.DataStorePinStore
 import org.openscreentime.pin.KeystoreMac
 import org.openscreentime.pin.PinHasher
@@ -15,7 +17,9 @@ import org.openscreentime.pin.pinDataStore
 import org.openscreentime.usage.AppIcons
 import org.openscreentime.usage.AppLabels
 import org.openscreentime.usage.AppOpsUsageAccessChecker
+import org.openscreentime.usage.InstalledApps
 import org.openscreentime.usage.PackageManagerAppIcons
+import org.openscreentime.usage.PackageManagerInstalledApps
 import org.openscreentime.usage.PackageManagerAppLabels
 import org.openscreentime.usage.RoomUsageRepository
 import org.openscreentime.usage.SystemUsageEventSource
@@ -48,6 +52,10 @@ class AppContainer(context: Context) {
             clock = SystemDeviceClock(appContext.contentResolver),
         )
     }
+
+    val limitRepository: LimitRepository by lazy { RoomLimitRepository(database.appLimitDao()) }
+
+    val installedApps: InstalledApps = PackageManagerInstalledApps(appContext.packageManager, appContext.packageName)
 
     val usageRepository: UsageRepository by lazy {
         RoomUsageRepository(

@@ -17,6 +17,12 @@ import org.openscreentime.ui.home.HomeScreen
 import org.openscreentime.ui.theme.OpenScreenTimeTheme
 import org.openscreentime.ui.usageaccess.UsageAccessScreen
 import org.openscreentime.ui.welcome.WelcomeScreen
+import org.openscreentime.limits.AppLimit
+import org.openscreentime.ui.limits.AppPickerScreen
+import org.openscreentime.ui.limits.LimitEditorScreen
+import org.openscreentime.ui.limits.LimitListScreen
+import org.openscreentime.ui.limits.LimitedApp
+import org.openscreentime.usage.InstalledApp
 import org.openscreentime.ui.pin.PinFlowActions
 import org.openscreentime.ui.pin.PinFlowKind
 import org.openscreentime.ui.pin.PinFlowScreen
@@ -127,6 +133,63 @@ class ScreenshotTests {
     }
 
     @Test
+    fun limitEditor_new() = capture("limit_editor") {
+        LimitEditorScreen("browser", "Browser", current = null, onBack = {}, onSave = {})
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h1000dp-xxhdpi")
+    fun limitEditor_weekend() = capture("limit_editor_weekend") {
+        LimitEditorScreen(
+            "video",
+            "Video",
+            current = AppLimit("video", Duration.ofMinutes(90), weekend = Duration.ofHours(3)),
+            onBack = {},
+            onSave = {},
+        )
+    }
+
+    @Test
+    fun limitList_noPin() = capture("limit_list_no_pin") {
+        LimitListScreen(sampleLimits, pinSet = false, onBack = {}, onAppClick = {}, onAddClick = {}, onSetPinClick = {})
+    }
+
+    @Test
+    @Config(qualifiers = "+night")
+    fun limitList_dark() = capture("limit_list_dark", dark = true) {
+        LimitListScreen(sampleLimits, pinSet = true, onBack = {}, onAppClick = {}, onAddClick = {}, onSetPinClick = {})
+    }
+
+    @Test
+    fun appPicker() = capture("app_picker") {
+        AppPickerScreen(
+            apps = listOf("Calculator", "Camera", "Clock", "Maps", "Messages").map { InstalledApp(it.lowercase(), it) },
+            onBack = {},
+            onAppClick = {},
+        )
+    }
+
+    @Test
+    fun appDetail_withLimit() = capture("app_detail_limit") {
+        AppDetailScreen(
+            detail = buildAppDetail(
+                "browser",
+                SampleUsage.usageByDay,
+                SampleUsage.today,
+                SampleUsage.firstDayOfWeek,
+                SampleUsage.labels,
+                limit = AppLimit("browser", Duration.ofMinutes(90)),
+            ),
+            onBack = {},
+        )
+    }
+
+    private val sampleLimits = listOf(
+        LimitedApp(AppLimit("browser", Duration.ofMinutes(90)), "Browser"),
+        LimitedApp(AppLimit("video", Duration.ofHours(1), weekend = Duration.ofHours(2)), "Video"),
+    )
+
+    @Test
     fun historyDialog() = capture("history_dialog") {
         HistoryLengthDialog(selected = HistoryLength.FourWeeks, onSelect = {}, onDismiss = {})
     }
@@ -134,6 +197,7 @@ class ScreenshotTests {
     @Composable
     private fun HomeFor(status: HomeStatus, dashboard: Dashboard = SampleUsage.dashboard()) {
         HomeScreen(
+            limitCount = 2,
             status = status,
             dashboard = dashboard,
             historyLength = HistoryLength.FourWeeks,

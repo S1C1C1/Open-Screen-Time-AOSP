@@ -8,7 +8,9 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
+import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
@@ -17,10 +19,16 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withContext
 import org.openscreentime.OpenScreenTimeApplication
 import org.openscreentime.data.HistoryLength
 import org.openscreentime.data.SettingsRepository
+import org.openscreentime.limits.AppLimit
+import org.openscreentime.limits.LimitRepository
 import org.openscreentime.pin.PinManager
+import org.openscreentime.ui.limits.LimitedApp
+import org.openscreentime.usage.InstalledApp
+import org.openscreentime.usage.InstalledApps
 import org.openscreentime.ui.pin.PinFlowController
 import org.openscreentime.ui.pin.PinFlowKind
 import org.openscreentime.ui.dashboard.AppDetail
@@ -44,6 +52,8 @@ class MainViewModel(
     private val usageRepository: UsageRepository,
     private val appLabels: AppLabels,
     private val pinManager: PinManager,
+    private val limitRepository: LimitRepository,
+    private val installedApps: InstalledApps,
     private val clock: Clock = Clock.systemDefaultZone(),
     /** First day of the week, from the phone's region (Sunday in the US, Monday in most of Europe). */
     private val firstDayOfWeek: DayOfWeek = WeekFields.of(Locale.getDefault()).firstDayOfWeek,
@@ -71,18 +81,24 @@ class MainViewModel(
         usageRepository.usageForDays(week.first(), week.last())
     }
 
-    private val dashboard = combine(weekUsage, today, selectedDay) { usage, day, selected ->
-        buildDashboard(usage, day, selected, firstDayOfWeek, appLabels)
+    private val dashboard = combine(weekUsage, today, selectedDay, limitRepository.limits) { usage, day, selected, limits ->
+        buildDashboard(usage, day, selected, firstDayOfWeek, appLabels, limits.map { it.packageName }.toSet())
     }
 
+    /** Apps with limits, with their names, sorted by name. */
+    val limitedApps: StateFlow<List<LimitedApp>> = limitRepository.limits
+        .map { limits ->
+            limits.map { LimitedApp(it, appLabels.labelFor(it.packageName)) }.sortedBy { it.label.lowercase() }
+        }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
     val uiState: StateFlow<AppUiState> = combine(
-        settingsRepository.settings,
-        hasUsageAccess,
-        usageAccessGuideOpen,
+        combine(settingsRepository.settings, hasUsageAccess, usageAccessGuideOpen, ::Triple),
         dashboard,
         pinManager.isPinSet,
-    ) { settings, hasAccess, guideOpen, dashboard, pinSet ->
-        AppUiState(settings, hasAccess, guideOpen, dashboard, pinSet)
+        limitedApps,
+    ) { (settings, hasAccess, guideOpen), dashboard, pinSet, limited ->
+        AppUiState(settings, hasAccess, guideOpen, dashboard, pinSet, limitCount = limited.size)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, AppUiState())
 
     /**
@@ -175,9 +191,34 @@ class MainViewModel(
 
     /** One app's usage this week, for its detail screen. */
     fun appDetail(packageName: String): Flow<AppDetail> =
-        combine(weekUsage, today) { usage, day ->
-            buildAppDetail(packageName, usage, day, firstDayOfWeek, appLabels)
+        combine(weekUsage, today, limitRepository.limitFor(packageName)) { usage, day, limit ->
+            buildAppDetail(packageName, usage, day, firstDayOfWeek, appLabels, limit)
         }
+
+    /** One app's saved limit, for the limit editor. */
+    fun limitFor(packageName: String): Flow<AppLimit?> = limitRepository.limitFor(packageName)
+
+    fun labelFor(packageName: String): String = appLabels.labelFor(packageName)
+
+    /** Apps a new limit can be added for: launchable apps that don't have one yet. */
+    fun appsWithoutLimit(): Flow<List<InstalledApp>> = limitRepository.limits.map { limits ->
+        val limited = limits.map { it.packageName }.toSet()
+        withContext(Dispatchers.IO) { installedApps.launchableApps() }.filter { it.packageName !in limited }
+    }
+
+    /**
+     * Saves [limit] for [packageName], or removes the limit if it's null.
+     * Asks for the PIN first when one is set. [onDone] runs after saving.
+     */
+    fun saveLimit(packageName: String, limit: AppLimit?, onDone: () -> Unit) = withPin {
+        if (limit == null) limitRepository.remove(packageName) else limitRepository.save(limit)
+        onDone()
+    }
+
+    /** Opens PIN setup; used by the reminder on the App limits screen. */
+    fun startPinSetup() {
+        viewModelScope.launch { pinFlow.start(PinFlowKind.Setup) }
+    }
 
     fun openUsageAccessGuide() {
         usageAccessGuideOpen.value = true
@@ -220,6 +261,8 @@ class MainViewModel(
                     container.usageRepository,
                     container.appLabels,
                     container.pinManager,
+                    container.limitRepository,
+                    container.installedApps,
                 )
             }
         }
