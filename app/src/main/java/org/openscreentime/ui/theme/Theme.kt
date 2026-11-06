@@ -19,6 +19,7 @@ private val LightColors = lightColorScheme(
     onPrimaryContainer = Color(0xFF001B3E),
     secondary = Color(0xFF555F71),
     surface = Color(0xFFF9F9FF),
+    surfaceBright = Color(0xFFF9F9FF),
     surfaceContainer = Color(0xFFEDEDF4),
 )
 
@@ -29,11 +30,13 @@ private val DarkColors = darkColorScheme(
     onPrimaryContainer = Color(0xFFD6E3FF),
     secondary = Color(0xFFBDC7DC),
     surface = Color(0xFF111318),
+    surfaceBright = Color(0xFF37393E),
     surfaceContainer = Color(0xFF1D2024),
 )
 
 /**
- * App theme. Like AOSP Settings, it uses the phone's wallpaper-based
+ * App theme. Cards use surfaceBright so they stand out from the background
+ * in both light and dark mode, as in AOSP Settings. Like AOSP Settings, it uses the phone's wallpaper-based
  * ("Material You") colors and follows the system light or dark setting.
  */
 @Composable

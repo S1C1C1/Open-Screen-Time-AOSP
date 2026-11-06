@@ -1,8 +1,38 @@
 <?xml version="1.0" encoding="utf-8"?>
 <resources>
     <string name="app_name">Screen time</string>
+    <string name="navigate_back">Back</string>
+
+    <!-- Welcome -->
+    <string name="welcome_title">Welcome to Screen time</string>
+    <string name="welcome_subtitle">See how you use your phone, and set limits that stick.</string>
+    <string name="welcome_feature_usage">See how much time you spend in each app</string>
+    <string name="welcome_feature_limits">Set daily app limits and a downtime schedule</string>
+    <string name="welcome_feature_pin">Lock settings with a screen time PIN, separate from your phone\'s unlock code</string>
+    <string name="welcome_feature_privacy">All data stays on this phone. This app has no internet access.</string>
+    <string name="welcome_turn_on">Turn on screen time</string>
+    <string name="welcome_not_now">Not now</string>
+
+    <!-- Usage access -->
+    <string name="usage_access_title">Allow usage access</string>
+    <string name="usage_access_body">To show how long you use each app, Screen time needs usage access. Android asks you to turn this on in Settings.</string>
+    <string name="usage_access_step_1">Tap Open settings.</string>
+    <string name="usage_access_step_2">Turn on Permit usage access.</string>
+    <string name="usage_access_step_3">Come back to this app. It continues on its own.</string>
+    <string name="usage_access_privacy">Usage information never leaves this phone.</string>
+    <string name="usage_access_open_settings">Open settings</string>
+
+    <!-- Home -->
     <string name="home_title">Screen time and parental controls</string>
-    <string name="home_placeholder_heading">Coming soon</string>
-    <string name="home_placeholder_body">Open Screen Time is being built. Usage tracking, app limits, downtime and the screen time PIN will appear here in upcoming test builds.</string>
+    <string name="home_tracking_off_title">Screen time is off</string>
+    <string name="home_tracking_off_body">Turn it on to see how much time you spend in each app.</string>
+    <string name="home_turn_on">Turn on</string>
+    <string name="home_needs_access_title">Usage access is off</string>
+    <string name="home_needs_access_body">Screen time can\'t see how long apps are used until you allow usage access.</string>
+    <string name="home_allow_access">Allow usage access</string>
+    <string name="home_ready_title">Screen time is on</string>
+    <string name="home_ready_body">Your usage dashboard is coming in an upcoming test build.</string>
+    <string name="home_use_screen_time">Use screen time</string>
+    <string name="home_use_screen_time_summary">Track how long each app is used</string>
     <string name="home_privacy_note">All screen time data stays on this phone. This app has no internet access.</string>
 </resources>

@@ -4,7 +4,18 @@
     other network permission. All data stays on the device. A unit test
     (NoNetworkPermissionTest) fails the build if one is added.
 -->
-<manifest xmlns:android="http://schemas.android.com/apk/res/android">
+<manifest xmlns:android="http://schemas.android.com/apk/res/android"
+    xmlns:tools="http://schemas.android.com/tools">
+
+    <!--
+        Lets the app read how long each app is used. For a regular app the
+        user must switch this on in Settings > Usage access. The lint check is
+        ignored because this permission is normally only for system apps; a
+        regular app may still request it and have the user grant it.
+    -->
+    <uses-permission
+        android:name="android.permission.PACKAGE_USAGE_STATS"
+        tools:ignore="ProtectedPermissions" />
 
     <application
         android:allowBackup="false"
