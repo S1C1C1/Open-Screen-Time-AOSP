@@ -198,6 +198,25 @@
     <string name="status_blocked_limit">Right now: would be blocked, limit reached</string>
     <string name="status_blocked_downtime">Right now: would be blocked by downtime</string>
 
+    <!-- Blocking (device owner) -->
+    <string name="blocking_title">Blocking</string>
+    <string name="blocking_active">Active</string>
+    <string name="blocking_active_summary">Active (device owner)</string>
+    <string name="blocking_active_body">Screen time is the device owner of this phone, so it can block apps and apply restrictions.</string>
+    <string name="blocking_preview_only">Preview only</string>
+    <string name="blocking_preview_body">Limits and downtime are saved, but apps can\'t be blocked yet. A regular app isn\'t allowed to block other apps.</string>
+    <string name="blocking_setup_title">Set up blocking for testing</string>
+    <string name="blocking_setup_step_1">Factory reset a test phone. Don\'t add any accounts during setup.</string>
+    <string name="blocking_setup_step_2">Turn on USB debugging in Developer options and connect a computer with adb.</string>
+    <string name="blocking_setup_step_3">Install this app and finish its welcome screens.</string>
+    <string name="blocking_setup_step_4">On the computer, run:</string>
+    <string name="blocking_setup_footnote">Full instructions are in docs/device-owner-setup.md in the project. In a future version, ROMs like GrapheneOS can include Screen time as a system app instead.</string>
+    <string name="blocking_remove">Remove device owner</string>
+    <string name="blocking_remove_footnote">Removing device owner stops all blocking and restrictions. The app can then be uninstalled. Needs the PIN if one is set.</string>
+    <string name="blocking_remove_confirm_title">Remove device owner?</string>
+    <string name="blocking_remove_confirm_body">Screen time will stop blocking apps and lift all restrictions. To use blocking again, the phone has to be factory reset and set up again.</string>
+    <string name="blocking_remove_confirm_button">Remove</string>
+
     <string name="cancel">Cancel</string>
     <string name="home_privacy_note">All screen time data stays on this phone. This app has no internet access.</string>
 </resources>

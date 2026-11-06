@@ -60,6 +60,22 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.OpenScreenTime">
 
+        <!--
+            Lets this app become the device owner (phase 2 testing). Only the
+            system can send to it, because of the BIND_DEVICE_ADMIN permission.
+        -->
+        <receiver
+            android:name=".admin.ScreenTimeAdmin"
+            android:exported="true"
+            android:permission="android.permission.BIND_DEVICE_ADMIN">
+            <meta-data
+                android:name="android.app.device_admin"
+                android:resource="@xml/device_admin" />
+            <intent-filter>
+                <action android:name="android.app.action.DEVICE_ADMIN_ENABLED" />
+            </intent-filter>
+        </receiver>
+
         <activity
             android:name=".MainActivity"
             android:exported="true">

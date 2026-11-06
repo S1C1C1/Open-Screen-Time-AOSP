@@ -20,7 +20,9 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import org.openscreentime.admin.EnforcementMode
 import org.openscreentime.blocking.BlockDecision
+import org.openscreentime.ui.admin.BlockingStatusScreen
 import org.openscreentime.blocking.BlockReason
 import org.openscreentime.ui.allowed.AlwaysAllowedScreen
 import org.openscreentime.ui.block.BlockActions
@@ -119,6 +121,7 @@ private fun MainNavigation(viewModel: MainViewModel, state: AppUiState) {
     NavHost(navController = navController, startDestination = Routes.DASHBOARD) {
         composable(Routes.DASHBOARD) {
             val downtime by viewModel.downtime.collectAsStateWithLifecycle()
+            val enforcement by viewModel.enforcementMode.collectAsStateWithLifecycle()
             val resources = LocalResources.current
             val locale = LocalConfiguration.current.locales[0]
             val use24Hour = DateFormat.is24HourFormat(LocalContext.current)
@@ -127,6 +130,8 @@ private fun MainNavigation(viewModel: MainViewModel, state: AppUiState) {
                 onDowntimeClick = { navController.navigate(Routes.DOWNTIME) },
                 alwaysAllowedCount = state.alwaysAllowedCount,
                 limitMode = state.limitMode,
+                blockingActive = enforcement == EnforcementMode.DeviceOwner,
+                onBlockingClick = { navController.navigate(Routes.BLOCKING) },
                 onLimitModeChange = viewModel::setLimitMode,
                 onAlwaysAllowedClick = { navController.navigate(Routes.ALLOWED) },
                 status = state.homeStatus,
@@ -152,6 +157,14 @@ private fun MainNavigation(viewModel: MainViewModel, state: AppUiState) {
                 onAppClick = { navController.navigate(Routes.limitEditor(it)) },
                 onAddClick = { navController.navigate(Routes.ADD_LIMIT) },
                 onSetPinClick = viewModel::startPinSetup,
+            )
+        }
+        composable(Routes.BLOCKING) {
+            val enforcement by viewModel.enforcementMode.collectAsStateWithLifecycle()
+            BlockingStatusScreen(
+                mode = enforcement,
+                onBack = { navController.popBackStack() },
+                onRemoveDeviceOwner = viewModel::removeDeviceOwner,
             )
         }
         composable(Routes.ALLOWED) {
@@ -258,6 +271,7 @@ private object Routes {
     const val LIMITS = "limits"
     const val DOWNTIME = "downtime"
     const val ALLOWED = "allowed"
+    const val BLOCKING = "blocking"
     const val ADD_ALLOWED = "allowed/add"
     const val ADD_LIMIT = "limits/add"
     const val LIMIT_EDITOR = "limits/edit/{$ARG_PACKAGE}"

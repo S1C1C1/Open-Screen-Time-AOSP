@@ -6,6 +6,8 @@ import org.openscreentime.data.DataStoreSettingsRepository
 import org.openscreentime.data.SettingsRepository
 import org.openscreentime.data.UsageDatabase
 import org.openscreentime.data.settingsDataStore
+import org.openscreentime.admin.AndroidDeviceOwner
+import org.openscreentime.admin.DeviceOwner
 import org.openscreentime.allowed.AlwaysAllowedPolicy
 import org.openscreentime.allowed.AlwaysAllowedRepository
 import org.openscreentime.allowed.AndroidSystemApps
@@ -80,6 +82,8 @@ class AppContainer(context: Context) {
     )
 
     val overrideRepository: OverrideRepository = DataStoreOverrideRepository(appContext.overrideDataStore)
+
+    val deviceOwner: DeviceOwner = AndroidDeviceOwner(appContext)
 
     /** Phase 1 can only preview blocking; phase 2 swaps in a real blocker. */
     val appBlocker: AppBlocker = PreviewOnlyAppBlocker()

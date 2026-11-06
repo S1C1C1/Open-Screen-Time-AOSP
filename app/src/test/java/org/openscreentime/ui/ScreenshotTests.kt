@@ -345,6 +345,18 @@ class ScreenshotTests {
     }
 
     @Test
+    @Config(qualifiers = "w411dp-h1000dp-xxhdpi")
+    fun blocking_previewOnly() = capture("blocking_preview_only") {
+        org.openscreentime.ui.admin.BlockingStatusScreen(org.openscreentime.admin.EnforcementMode.PreviewOnly, {}, {})
+    }
+
+    @Test
+    @Config(qualifiers = "+night")
+    fun blocking_active_dark() = capture("blocking_active_dark", dark = true) {
+        org.openscreentime.ui.admin.BlockingStatusScreen(org.openscreentime.admin.EnforcementMode.DeviceOwner, {}, {})
+    }
+
+    @Test
     fun historyDialog() = capture("history_dialog") {
         HistoryLengthDialog(selected = HistoryLength.FourWeeks, onSelect = {}, onDismiss = {})
     }
