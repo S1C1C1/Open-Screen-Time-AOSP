@@ -6,6 +6,12 @@ import org.openscreentime.data.DataStoreSettingsRepository
 import org.openscreentime.data.SettingsRepository
 import org.openscreentime.data.UsageDatabase
 import org.openscreentime.data.settingsDataStore
+import org.openscreentime.pin.DataStorePinStore
+import org.openscreentime.pin.KeystoreMac
+import org.openscreentime.pin.PinHasher
+import org.openscreentime.pin.PinManager
+import org.openscreentime.pin.SystemDeviceClock
+import org.openscreentime.pin.pinDataStore
 import org.openscreentime.usage.AppIcons
 import org.openscreentime.usage.AppLabels
 import org.openscreentime.usage.AppOpsUsageAccessChecker
@@ -32,6 +38,15 @@ class AppContainer(context: Context) {
 
     private val database: UsageDatabase by lazy {
         Room.databaseBuilder(appContext, UsageDatabase::class.java, "usage.db").build()
+    }
+
+    /** Created on first use: making the keystore key can take a moment. */
+    val pinManager: PinManager by lazy {
+        PinManager(
+            store = DataStorePinStore(appContext.pinDataStore),
+            hasher = PinHasher(KeystoreMac(appContext.packageManager)),
+            clock = SystemDeviceClock(appContext.contentResolver),
+        )
     }
 
     val usageRepository: UsageRepository by lazy {
