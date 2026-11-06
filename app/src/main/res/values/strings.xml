@@ -217,6 +217,20 @@
     <string name="blocking_remove_confirm_body">Screen time will stop blocking apps and lift all restrictions. To use blocking again, the phone has to be factory reset and set up again.</string>
     <string name="blocking_remove_confirm_button">Remove</string>
 
+    <!-- Notifications -->
+    <string name="notify_channel_status">Screen time running</string>
+    <string name="notify_channel_status_description">A quiet notification Android requires while Screen time tracks app use in the background.</string>
+    <string name="notify_channel_warnings">Time warnings</string>
+    <string name="notify_channel_warnings_description">A heads-up 5 minutes before an app limit is reached or downtime starts.</string>
+    <string name="notify_status_title">Screen time is on</string>
+    <plurals name="notify_limit_soon">
+        <item quantity="one">%1$d min left on %2$s today</item>
+        <item quantity="other">%1$d min left on %2$s today</item>
+    </plurals>
+    <string name="notify_downtime_soon">Downtime starts at %1$s</string>
+    <string name="notify_prompt">Allow notifications to get a warning 5 minutes before time is up.</string>
+    <string name="notify_prompt_allow">Allow</string>
+
     <string name="cancel">Cancel</string>
     <string name="home_privacy_note">All screen time data stays on this phone. This app has no internet access.</string>
 </resources>

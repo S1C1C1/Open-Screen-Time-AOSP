@@ -18,6 +18,15 @@
         tools:ignore="ProtectedPermissions" />
 
     <!--
+        For the background service that tracks usage while the phone is in
+        use and sends 5-minute warnings (phase 2), and its notifications.
+    -->
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE" />
+    <uses-permission android:name="android.permission.FOREGROUND_SERVICE_SPECIAL_USE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
+
+    <!--
         WorkManager (used for the background usage job) asks for this to
         support network conditions, which this app never uses. Removed to
         keep the no-network promise. NoNetworkPermissionTest checks it.
@@ -59,6 +68,25 @@
         android:roundIcon="@mipmap/ic_launcher"
         android:supportsRtl="true"
         android:theme="@style/Theme.OpenScreenTime">
+
+        <service
+            android:name=".monitor.MonitorService"
+            android:exported="false"
+            android:foregroundServiceType="specialUse">
+            <property
+                android:name="android.app.PROPERTY_SPECIAL_USE_FGS_SUBTYPE"
+                android:value="Screen time: tracks app use while the phone is in use to enforce the user's own limits and downtime." />
+        </service>
+
+        <receiver
+            android:name=".monitor.StartReceiver"
+            android:exported="true">
+            <!-- Only the system sends these. -->
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
+            </intent-filter>
+        </receiver>
 
         <!--
             Lets this app become the device owner (phase 2 testing). Only the

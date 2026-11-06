@@ -7,6 +7,7 @@ import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
 import androidx.compose.runtime.CompositionLocalProvider
+import org.openscreentime.monitor.MonitorService
 import org.openscreentime.ui.MainViewModel
 import org.openscreentime.ui.OpenScreenTimeApp
 import org.openscreentime.ui.theme.OpenScreenTimeTheme
@@ -40,6 +41,8 @@ class MainActivity : ComponentActivity() {
         // The user may have just changed usage access in Settings, and usage
         // has changed since the app was last open.
         viewModel.onAppVisible()
+        // Android allows starting the background service while the app is open.
+        MonitorService.start(this)
     }
 
     override fun onStop() {

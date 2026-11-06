@@ -26,6 +26,9 @@ interface UsageRepository {
     /** Reads recent events from Android and saves the daily totals. */
     suspend fun sync()
 
+    /** Like [sync], but only today: quick enough to run every few seconds while the phone is in use. */
+    suspend fun syncToday()
+
     /** Deletes days older than [length] allows. */
     suspend fun deleteOldHistory(length: HistoryLength)
 }
@@ -60,13 +63,17 @@ class RoomUsageRepository(
                 }
         }
 
-    override suspend fun sync() {
+    // Recalculate the last week every time. Days Android has already
+    // forgotten can't lose time, because saving keeps the larger value.
+    override suspend fun sync() = syncDays(SYNC_DAYS)
+
+    override suspend fun syncToday() = syncDays(1)
+
+    private suspend fun syncDays(days: Int) {
         val zone = zone()
         val now = clock.instant()
         val today = now.atZone(zone).toLocalDate()
-        // Recalculate the last week every time. Days Android has already
-        // forgotten can't lose time, because saving keeps the larger value.
-        val windowStart = today.minusDays(SYNC_DAYS - 1L).atStartOfDay(zone).toInstant()
+        val windowStart = today.minusDays(days - 1L).atStartOfDay(zone).toInstant()
 
         val totals = withContext(Dispatchers.IO) {
             UsageCalculator.dailyTotals(

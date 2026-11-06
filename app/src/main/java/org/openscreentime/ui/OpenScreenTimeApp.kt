@@ -1,6 +1,13 @@
 package org.openscreentime.ui
 
+import android.Manifest
+import android.content.Context
+import android.content.pm.PackageManager
 import android.net.Uri
+import androidx.activity.compose.rememberLauncherForActivityResult
+import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.setValue
 import android.text.format.DateFormat
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
@@ -122,6 +129,11 @@ private fun MainNavigation(viewModel: MainViewModel, state: AppUiState) {
         composable(Routes.DASHBOARD) {
             val downtime by viewModel.downtime.collectAsStateWithLifecycle()
             val enforcement by viewModel.enforcementMode.collectAsStateWithLifecycle()
+            val context = LocalContext.current
+            var notificationsAllowed by remember { mutableStateOf(notificationsAllowed(context)) }
+            val askForNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
+                notificationsAllowed = notificationsAllowed(context)
+            }
             val resources = LocalResources.current
             val locale = LocalConfiguration.current.locales[0]
             val use24Hour = DateFormat.is24HourFormat(LocalContext.current)
@@ -131,6 +143,9 @@ private fun MainNavigation(viewModel: MainViewModel, state: AppUiState) {
                 alwaysAllowedCount = state.alwaysAllowedCount,
                 limitMode = state.limitMode,
                 blockingActive = enforcement == EnforcementMode.DeviceOwner,
+                // Warnings only matter once there's a limit or downtime to warn about.
+                showNotificationPrompt = !notificationsAllowed && (state.limitCount > 0 || downtime.schedule.enabled),
+                onAllowNotifications = { askForNotifications.launch(Manifest.permission.POST_NOTIFICATIONS) },
                 onBlockingClick = { navController.navigate(Routes.BLOCKING) },
                 onLimitModeChange = viewModel::setLimitMode,
                 onAlwaysAllowedClick = { navController.navigate(Routes.ALLOWED) },
@@ -262,6 +277,9 @@ private fun MainNavigation(viewModel: MainViewModel, state: AppUiState) {
         }
     }
 }
+
+private fun notificationsAllowed(context: Context) =
+    context.checkSelfPermission(Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
 
 private object Routes {
     const val DASHBOARD = "dashboard"
