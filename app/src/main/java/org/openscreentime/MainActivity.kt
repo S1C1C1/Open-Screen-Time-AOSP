@@ -31,8 +31,9 @@ class MainActivity : ComponentActivity() {
 
     override fun onResume() {
         super.onResume()
-        // The user may have just changed usage access in Settings.
-        viewModel.refreshUsageAccess()
+        // The user may have just changed usage access in Settings, and usage
+        // has changed since the app was last open.
+        viewModel.onAppVisible()
     }
 
     private fun openUsageAccessSettings() {

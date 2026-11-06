@@ -35,10 +35,12 @@ It is designed to ship as a **privileged system app** built into a ROM, with Gra
 ### 1. Usage dashboard
 
 - Total screen time for today, with a daily bar chart for the current week.
+- Time on the home screen (launcher) is not counted, matching Digital Wellbeing and iOS Screen Time. Time in the screen time app itself is counted.
+- An app counts as used while one of its screens is in the foreground. Turning the screen off or locking the phone ends use. Two apps in split screen are both counted. Use crossing midnight is split between the two days.
 - A list of apps sorted by usage, showing time used today.
 - Tapping an app shows its daily usage over the week and its current limit, if any.
 - Optional extras if they're straightforward: number of unlocks, notifications per app.
-- **History length is chosen by the user** in settings, for example 1 week, 4 weeks, 3 months, or 1 year. The default is 4 weeks.
+- **History length is chosen by the user** in settings: 1 week, 4 weeks, 3 months (90 days), or 1 year. The default is 4 weeks. The chosen number of days includes today.
 
 ### 2. Per-app time limits
 
@@ -136,6 +138,7 @@ These are always enforced once a PIN is set, regardless of the options above:
 - No analytics, crash reporting, or third-party services.
 - No Google Play Services dependency.
 - Usage data is stored in the app's private storage and deleted according to the user's history setting.
+- Android keeps detailed usage events for only a few days, so the app saves daily totals per app in its own database. It recalculates the last 7 days when it opens and every 3 hours in the background, and never lowers a saved total. The same background job deletes history older than the setting.
 
 ## Technical requirements
 
@@ -148,6 +151,7 @@ These are always enforced once a PIN is set, regardless of the options above:
 - Any version-specific behavior is handled in code, not with separate branches.
 - Must build from the command line with Gradle, and through GitHub Actions on every push.
 - Include automated tests for limit, downtime, and PIN logic, plus screenshot tests for the main screens so the UI can be reviewed without a phone.
+- Usage history is stored with **Room** (AndroidX), which uses Google's **KSP** build tool. Background work uses **WorkManager** (AndroidX). WorkManager's network-state permission is removed from the app.
 - Screenshot tests use **Roborazzi** with **Robolectric**, both test-only libraries that are never included in the app. Robolectric runs tests on Android 16 (API 36) until it fully supports Android 17.
 - GitHub Actions builds a debug APK for every push and pull request. Builds can use a fixed debug signing key stored as a GitHub secret, so testers can install new builds over old ones. Never commit the key.
 

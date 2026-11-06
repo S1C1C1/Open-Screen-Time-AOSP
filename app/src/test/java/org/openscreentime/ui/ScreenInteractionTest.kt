@@ -1,8 +1,10 @@
 package org.openscreentime.ui
 
+import androidx.compose.ui.test.assertCountEquals
 import androidx.compose.ui.test.assertIsOff
 import androidx.compose.ui.test.assertIsOn
 import androidx.compose.ui.test.junit4.v2.createComposeRule
+import androidx.compose.ui.test.onAllNodesWithText
 import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
@@ -11,6 +13,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
+import java.time.Duration
+import org.openscreentime.data.HistoryLength
 import org.openscreentime.ui.home.HomeScreen
 import org.openscreentime.ui.theme.OpenScreenTimeTheme
 import org.openscreentime.ui.usageaccess.UsageAccessScreen
@@ -54,7 +58,7 @@ class ScreenInteractionTest {
         var tracking: Boolean? = null
         composeRule.setContent {
             OpenScreenTimeTheme(dynamicColor = false) {
-                HomeScreen(status = HomeStatus.Ready, onTrackingChange = { tracking = it }, onAllowUsageAccess = {})
+                TestHome(HomeStatus.Ready, onTrackingChange = { tracking = it })
             }
         }
         composeRule.onNodeWithText("Use screen time").assertIsOn().performClick()
@@ -66,7 +70,7 @@ class ScreenInteractionTest {
         var tracking: Boolean? = null
         composeRule.setContent {
             OpenScreenTimeTheme(dynamicColor = false) {
-                HomeScreen(status = HomeStatus.TrackingOff, onTrackingChange = { tracking = it }, onAllowUsageAccess = {})
+                TestHome(HomeStatus.TrackingOff, onTrackingChange = { tracking = it })
             }
         }
         composeRule.onNodeWithText("Use screen time").assertIsOff()
@@ -79,11 +83,41 @@ class ScreenInteractionTest {
         var tapped = false
         composeRule.setContent {
             OpenScreenTimeTheme(dynamicColor = false) {
-                HomeScreen(status = HomeStatus.NeedsUsageAccess, onTrackingChange = {}, onAllowUsageAccess = { tapped = true })
+                TestHome(HomeStatus.NeedsUsageAccess, onAllowUsageAccess = { tapped = true })
             }
         }
         composeRule.onNodeWithText("Allow usage access").performClick()
         assertEquals(true, tapped)
     }
 
+
+    @Test
+    fun historySettingOpensDialogAndSaves() {
+        var chosen: HistoryLength? = null
+        composeRule.setContent {
+            OpenScreenTimeTheme(dynamicColor = false) {
+                TestHome(HomeStatus.Ready, onHistoryLengthChange = { chosen = it })
+            }
+        }
+        composeRule.onNodeWithText("Keep usage history").performClick()
+        composeRule.onNodeWithText("1 year").performClick()
+        assertEquals(HistoryLength.OneYear, chosen)
+        // The dialog closes after choosing.
+        composeRule.onAllNodesWithText("1 year").assertCountEquals(0)
+    }
+
+    @androidx.compose.runtime.Composable
+    private fun TestHome(
+        status: HomeStatus,
+        onTrackingChange: (Boolean) -> Unit = {},
+        onAllowUsageAccess: () -> Unit = {},
+        onHistoryLengthChange: (HistoryLength) -> Unit = {},
+    ) = HomeScreen(
+        status = status,
+        todayUsage = TodayUsage(Duration.ZERO, emptyList()),
+        historyLength = HistoryLength.FourWeeks,
+        onTrackingChange = onTrackingChange,
+        onAllowUsageAccess = onAllowUsageAccess,
+        onHistoryLengthChange = onHistoryLengthChange,
+    )
 }
