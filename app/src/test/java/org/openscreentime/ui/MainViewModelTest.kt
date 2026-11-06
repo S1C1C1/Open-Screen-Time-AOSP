@@ -56,6 +56,9 @@ class MainViewModelTest {
     private val deviceOwner = FakeDeviceOwner()
     private val blocker = RecordingAppBlocker()
     private var enforcementChecks = 0
+    private val restrictionsRepository = FakeRestrictionsRepository()
+    private val applied = mutableListOf<Set<org.openscreentime.restrictions.Restriction>>()
+    private val deviceClock = org.openscreentime.pin.FakeDeviceClock()
     private var installed = listOf(
         InstalledApp("chat", "Chat"),
         InstalledApp("mail", "Mail"),
@@ -77,6 +80,9 @@ class MainViewModelTest {
         deviceOwner = deviceOwner,
         appBlocker = blocker,
         requestEnforcementCheck = { enforcementChecks++ },
+        restrictionsRepository = restrictionsRepository,
+        restrictionApplier = { applied += listOf(it) },
+        deviceClock = deviceClock,
         clock = clock,
         firstDayOfWeek = DayOfWeek.SUNDAY,
         ioDispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
@@ -818,6 +824,64 @@ class MainViewModelTest {
         viewModel.currentState()
         assertEquals(listOf(emptySet<String>()), blocker.calls)
         assertEquals(EnforcementMode.PreviewOnly, viewModel.enforcementMode.value)
+    }
+
+    // --- Restrictions ---
+
+    private val installs = org.openscreentime.restrictions.Restriction.Installs
+
+    @Test
+    fun turningARestrictionOnNeverNeedsThePin() {
+        runBlocking { pinManager.setInitialPin(pin("4826")) }
+        val viewModel = newViewModel()
+        viewModel.setRestriction(installs, true)
+        viewModel.currentState()
+        assertEquals(setOf(installs), viewModel.restrictions.value.enabled)
+        assertEquals(setOf(installs), applied.last())
+        assertNull(viewModel.pinFlow.ui.value)
+    }
+
+    @Test
+    fun turningARestrictionOffNeedsThePin() {
+        runBlocking {
+            pinManager.setInitialPin(pin("4826"))
+            restrictionsRepository.setEnabled(installs, true)
+        }
+        val viewModel = newViewModel()
+        viewModel.setRestriction(installs, false)
+        viewModel.currentState()
+        assertEquals(setOf(installs), viewModel.restrictions.value.enabled)
+
+        viewModel.enterPin("4826")
+        assertEquals(emptySet<Any>(), viewModel.restrictions.value.enabled)
+        assertEquals(emptySet<Any>(), applied.last())
+    }
+
+    @Test
+    fun allowingForFifteenMinutesLiftsItAndAsksForARecheck() {
+        runBlocking {
+            pinManager.setInitialPin(pin("4826"))
+            restrictionsRepository.setEnabled(installs, true)
+        }
+        val viewModel = newViewModel()
+        viewModel.allowRestrictionFor15Minutes(installs)
+        viewModel.currentState()
+        viewModel.enterPin("4826")
+
+        assertEquals(emptySet<Any>(), applied.last())
+        assertEquals(1, enforcementChecks)
+        assertEquals(noon.plusSeconds(15 * 60), viewModel.restrictions.value.liftedUntil[installs])
+        // Still switched on: it comes back by itself.
+        assertEquals(setOf(installs), viewModel.restrictions.value.enabled)
+    }
+
+    @Test
+    fun removingDeviceOwnerClearsRestrictionsFirst() {
+        deviceOwner.current = EnforcementMode.DeviceOwner
+        val viewModel = newViewModel()
+        viewModel.removeDeviceOwner()
+        viewModel.currentState()
+        assertEquals(emptySet<Any>(), applied.last())
     }
 }
 

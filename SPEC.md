@@ -105,6 +105,11 @@ When enabled, each of these requires the PIN to change or use:
 
 Each restriction can be turned on or off individually.
 
+- Turning a restriction on never needs the PIN. Turning it off, or **Allow for 15 minutes**, needs the PIN once one is set. A lift ends after 15 minutes or at the next restart, whichever comes first, and is timed so changing the clock can't stretch it.
+- While **App installs and uninstalls** is on, app updates also wait, and installing test builds with adb needs it allowed.
+- While **Developer options and debugging** is on, adb (including installing test builds) needs it allowed.
+- Device-owner mode uses Android user restrictions: installs (`no_install_apps`, `no_uninstall_apps`, `no_install_unknown_sources_globally`), developer options (`no_debugging_features`), users (`no_add_user`, `no_user_switch`, and `no_add_private_profile` on Android 15+), date and time (`no_config_date_time`). Work profiles can't be added on a device-owner phone, and Android has no public restriction for app clone profiles (GrapheneOS doesn't offer them).
+
 ### 7. Self-protection
 
 These are always enforced once a PIN is set, regardless of the options above:

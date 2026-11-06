@@ -369,6 +369,30 @@ class ScreenshotTests {
         )
     }
 
+    private val sampleRestrictions = org.openscreentime.ui.restrictions.RestrictionsUi(
+        enabled = setOf(
+            org.openscreentime.restrictions.Restriction.Installs,
+            org.openscreentime.restrictions.Restriction.DeveloperOptions,
+            org.openscreentime.restrictions.Restriction.DateTime,
+        ),
+        liftedUntil = mapOf(
+            org.openscreentime.restrictions.Restriction.Installs to
+                SampleUsage.today.atTime(15, 15).atZone(java.time.ZoneId.systemDefault()).toInstant(),
+        ),
+    )
+
+    @Test
+    @Config(qualifiers = "w411dp-h1200dp-xxhdpi")
+    fun restrictions_previewOnly() = capture("restrictions_preview_only") {
+        org.openscreentime.ui.restrictions.RestrictionsScreen(sampleRestrictions, blockingActive = false, { _, _ -> }, {}, {})
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h1200dp-night-xxhdpi")
+    fun restrictions_active_dark() = capture("restrictions_active_dark", dark = true) {
+        org.openscreentime.ui.restrictions.RestrictionsScreen(sampleRestrictions, blockingActive = true, { _, _ -> }, {}, {})
+    }
+
     @Test
     fun historyDialog() = capture("history_dialog") {
         HistoryLengthDialog(selected = HistoryLength.FourWeeks, onSelect = {}, onDismiss = {})

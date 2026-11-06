@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.flow.update
@@ -34,6 +35,13 @@ import org.openscreentime.blocking.AppBlocker
 import org.openscreentime.blocking.AppOverride
 import org.openscreentime.blocking.PreviewOnlyAppBlocker
 import org.openscreentime.monitor.MonitorService
+import org.openscreentime.pin.DeviceClock
+import org.openscreentime.restrictions.Restriction
+import org.openscreentime.restrictions.RestrictionApplier
+import org.openscreentime.restrictions.RestrictionRules
+import org.openscreentime.restrictions.RestrictionsRepository
+import org.openscreentime.restrictions.RestrictionsState
+import org.openscreentime.ui.restrictions.RestrictionsUi
 import org.openscreentime.blocking.BlockDecision
 import org.openscreentime.blocking.BlockReason
 import org.openscreentime.blocking.BlockRules
@@ -86,6 +94,9 @@ class MainViewModel(
     private val appBlocker: AppBlocker = PreviewOnlyAppBlocker(),
     /** Asks the background service to re-check blocking now, e.g. after extra time is given. */
     private val requestEnforcementCheck: () -> Unit = {},
+    private val restrictionsRepository: RestrictionsRepository? = null,
+    private val restrictionApplier: RestrictionApplier = RestrictionApplier {},
+    private val deviceClock: DeviceClock? = null,
     private val clock: Clock = Clock.systemDefaultZone(),
     /** First day of the week, from the phone's region (Sunday in the US, Monday in most of Europe). */
     private val firstDayOfWeek: DayOfWeek = WeekFields.of(Locale.getDefault()).firstDayOfWeek,
@@ -169,6 +180,7 @@ class MainViewModel(
         now.value = clock.instant()
         // Device-owner status can change from a computer while the app is in the background.
         enforcement.value = deviceOwner.mode()
+        viewModelScope.launch { applyRestrictions() }
         refreshUsageAccess()
         syncUsage()
     }
@@ -318,8 +330,9 @@ class MainViewModel(
      * PIN when one is set, since it switches off all blocking.
      */
     fun removeDeviceOwner() = withPin {
-        // Unpause everything this app paused before giving up control.
+        // Undo everything this app set before giving up control.
         appBlocker.setBlockedApps(emptySet())
+        restrictionApplier.apply(emptySet())
         deviceOwner.remove()
         enforcement.value = deviceOwner.mode()
     }
@@ -441,6 +454,53 @@ class MainViewModel(
 
     fun setLimitMode(mode: LimitMode) = withPin { settingsRepository.setLimitMode(mode) }
 
+    // --- Restrictions ---
+
+    /** Restrictions and their lifts, for the Restrictions screen. */
+    val restrictions: StateFlow<RestrictionsUi> =
+        combine(restrictionsRepository?.state ?: flowOf(RestrictionsState()), now) { state, instant ->
+            val clock = deviceClock
+            RestrictionsUi(
+                enabled = state.enabled,
+                liftedUntil = if (clock == null) {
+                    emptyMap()
+                } else {
+                    state.enabled.mapNotNull { r ->
+                        RestrictionRules.liftRemaining(state.lifts[r], clock)?.let { r to instant + it }
+                    }.toMap()
+                },
+            )
+        }.stateIn(viewModelScope, SharingStarted.Eagerly, RestrictionsUi())
+
+    /** Turning a restriction on is free; turning it off needs the PIN when one is set. */
+    fun setRestriction(restriction: Restriction, enabled: Boolean) {
+        val repository = restrictionsRepository ?: return
+        val change: suspend () -> Unit = {
+            repository.setEnabled(restriction, enabled)
+            applyRestrictions()
+        }
+        if (enabled) viewModelScope.launch { change() } else withPin(change)
+    }
+
+    /** Lifts a restriction for 15 minutes with the PIN. */
+    fun allowRestrictionFor15Minutes(restriction: Restriction) {
+        val repository = restrictionsRepository ?: return
+        val clock = deviceClock ?: return
+        withPin {
+            repository.setLift(restriction, RestrictionRules.newLift(clock))
+            applyRestrictions()
+            // The background service switches it back on when the 15 minutes are up.
+            requestEnforcementCheck()
+        }
+    }
+
+    private suspend fun applyRestrictions() {
+        val repository = restrictionsRepository ?: return
+        val clock = deviceClock ?: return
+        restrictionApplier.apply(RestrictionRules.active(repository.state.first(), clock))
+        now.value = this.clock.instant()
+    }
+
     /** Saves a changed downtime schedule, asking for the PIN first when one is set. */
     fun saveDowntime(schedule: DowntimeSchedule) = withPin {
         downtimeRepository.save(schedule)
@@ -503,6 +563,9 @@ class MainViewModel(
                     container.deviceOwner,
                     container.appBlocker,
                     { MonitorService.checkNow(appContext) },
+                    container.restrictionsRepository,
+                    container.restrictionApplier,
+                    container.deviceClock,
                 )
             }
         }

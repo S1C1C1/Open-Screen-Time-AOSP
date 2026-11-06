@@ -233,6 +233,27 @@
     <string name="notify_prompt">Allow notifications to get a warning 5 minutes before time is up.</string>
     <string name="notify_prompt_allow">Allow</string>
 
+    <!-- Restrictions -->
+    <string name="restrictions_title">Restrictions</string>
+    <string name="restrictions_off">Off</string>
+    <plurals name="restrictions_on_count">
+        <item quantity="one">%d on</item>
+        <item quantity="other">%d on</item>
+    </plurals>
+    <string name="restrictions_description">Each restriction needs the screen time PIN to change, or to allow it for a while.</string>
+    <string name="restrictions_need_device_owner">Restrictions take effect once blocking is set up. See Settings > Blocking.</string>
+    <string name="restriction_installs">App installs and uninstalls</string>
+    <string name="restriction_installs_description">Includes app stores and APK files. App updates also wait while this is on.</string>
+    <string name="restriction_developer">Developer options and debugging</string>
+    <string name="restriction_developer_description">Includes USB and wireless debugging. Installing test builds with adb also needs this allowed.</string>
+    <string name="restriction_users">Adding or switching users</string>
+    <string name="restriction_users_description">Includes guest mode and new profiles.</string>
+    <string name="restriction_date_time">Date, time and time zone</string>
+    <string name="restriction_date_time_description">Stops changing the clock, which could otherwise shorten downtime or stretch extra time.</string>
+    <string name="restriction_allow_15">Allow for 15 minutes</string>
+    <string name="restriction_allowed_until">Allowed until %1$s, then switches back on</string>
+    <string name="restrictions_footnote">Factory reset is never blocked. It\'s the way to recover the phone if the PIN is forgotten.</string>
+
     <string name="cancel">Cancel</string>
     <string name="home_privacy_note">All screen time data stays on this phone. This app has no internet access.</string>
 </resources>
