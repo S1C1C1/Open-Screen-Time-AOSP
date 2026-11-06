@@ -100,7 +100,10 @@ These are always enforced once a PIN is set, regardless of the options above:
 
 - A 4–6 digit PIN.
 - Stored securely as a salted hash, using Android's hardware-backed keystore where available. It is never stored in plain text.
-- Wrong attempts are throttled with increasing delays (for example after 5 attempts, a 1-minute wait, rising from there) to prevent guessing.
+- Wrong attempts are throttled with increasing delays to prevent guessing. After wrong attempts in a row: 1–4, no wait; 5, 1 minute; 6, 5 minutes; 7, 15 minutes; 8, 1 hour; 9, 4 hours; 10 or more, 24 hours each. A correct PIN resets the count. During a wait, no PIN is checked, not even the correct one.
+- One wrong-attempt count is shared by every place that asks for the PIN. It is saved before the result is shown, so closing the app can't undo it.
+- Waits are timed by the phone's time since start, so changing the date, time or time zone doesn't shorten them. If the phone restarts during a wait, the wait starts over at full length.
+- Storage: PBKDF2-HMAC-SHA256 with a random 16-byte salt and 100,000 rounds, then sealed with an HMAC-SHA256 key kept in the Android hardware keystore (StrongBox when available). The key can't be exported, so saved data can't be used to guess the PIN on another device.
 - Changing the PIN requires the current PIN.
 
 ### 9. Forgotten PIN and factory reset
