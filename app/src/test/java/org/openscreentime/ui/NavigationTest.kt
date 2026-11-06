@@ -39,6 +39,7 @@ class NavigationTest {
             downtimeRepository = FakeDowntimeRepository(),
             alwaysAllowedRepository = FakeAlwaysAllowedRepository(),
             alwaysAllowedPolicy = testAlwaysAllowedPolicy(),
+            overrideRepository = FakeOverrideRepository(),
             clock = Clock.fixed(SampleUsage.today.atTime(12, 0).toInstant(ZoneOffset.UTC), ZoneOffset.UTC),
             firstDayOfWeek = SampleUsage.firstDayOfWeek,
             ioDispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
@@ -113,5 +114,19 @@ class NavigationTest {
         composeRule.onNodeWithText("Add app").performScrollTo().performClick()
         composeRule.onNodeWithText("Maps").performClick()
         composeRule.onNodeWithContentDescription("Remove Maps").assertExists()
+    }
+
+    @Test
+    fun previewTheBlockScreenFromAnAppsPage() {
+        startApp()
+        composeRule.onNodeWithText("Maps").performScrollTo().performClick()
+        composeRule.onNodeWithText("Right now: allowed").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Preview block screen").performScrollTo().performClick()
+        composeRule.onNodeWithText("Time limit reached").assertIsDisplayed()
+
+        // Strict mode with no PIN set: "Enter PIN" goes straight to the choice.
+        composeRule.onNodeWithText("Enter PIN for more time").performClick()
+        composeRule.onNodeWithText("15 minutes").performClick()
+        composeRule.onNodeWithText("Right now: allowed").performScrollTo().assertIsDisplayed()
     }
 }

@@ -271,6 +271,79 @@ class ScreenshotTests {
         )
     }
 
+    private fun blockUi(
+        reason: org.openscreentime.blocking.BlockReason = org.openscreentime.blocking.BlockReason.LimitReached,
+        mode: org.openscreentime.blocking.LimitMode = org.openscreentime.blocking.LimitMode.Strict,
+        grace: Boolean = false,
+        choosing: Boolean = false,
+    ) = org.openscreentime.ui.block.BlockScreenUi(
+        packageName = "video",
+        label = "Video",
+        reason = reason,
+        blockedUntil = SampleUsage.today.plusDays(1).atTime(7, 0).atZone(java.time.ZoneOffset.UTC),
+        mode = mode,
+        graceAvailable = grace,
+        choosingUnlock = choosing,
+    )
+
+    @Composable
+    private fun BlockFor(ui: org.openscreentime.ui.block.BlockScreenUi) {
+        org.openscreentime.ui.block.BlockScreen(ui, org.openscreentime.ui.block.BlockActions({}, {}, {}, {}, {}))
+    }
+
+    @Test
+    fun block_limitStrict() = capture("block_limit_strict") { BlockFor(blockUi()) }
+
+    @Test
+    fun block_limitGrace() = capture("block_limit_grace") {
+        BlockFor(blockUi(mode = org.openscreentime.blocking.LimitMode.Grace, grace = true))
+    }
+
+    @Test
+    fun block_limitReminder() = capture("block_limit_reminder") {
+        BlockFor(blockUi(mode = org.openscreentime.blocking.LimitMode.Reminder))
+    }
+
+    @Test
+    @Config(qualifiers = "+night")
+    fun block_downtimeStrict_dark() = capture("block_downtime_dark", dark = true) {
+        BlockFor(blockUi(reason = org.openscreentime.blocking.BlockReason.Downtime))
+    }
+
+    @Test
+    fun block_unlockChoice() = capture("block_unlock_choice") { BlockFor(blockUi(choosing = true)) }
+
+    @Test
+    fun block_unlockChoiceDowntime() = capture("block_unlock_choice_downtime") {
+        BlockFor(blockUi(reason = org.openscreentime.blocking.BlockReason.Downtime, choosing = true))
+    }
+
+    @Test
+    fun limitModeDialog() = capture("limit_mode_dialog") {
+        org.openscreentime.ui.home.LimitModeDialog(org.openscreentime.blocking.LimitMode.Strict, {}, {})
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h1000dp-xxhdpi")
+    fun appDetail_status() = capture("app_detail_status") {
+        AppDetailScreen(
+            detail = buildAppDetail(
+                "browser",
+                SampleUsage.usageByDay,
+                SampleUsage.today,
+                SampleUsage.firstDayOfWeek,
+                SampleUsage.labels,
+                limit = AppLimit("browser", Duration.ofHours(1)),
+            ),
+            onBack = {},
+            decision = org.openscreentime.blocking.BlockDecision.Blocked(
+                org.openscreentime.blocking.BlockReason.LimitReached,
+                SampleUsage.today.plusDays(1).atStartOfDay(java.time.ZoneOffset.UTC),
+                graceAvailable = false,
+            ),
+        )
+    }
+
     @Test
     fun historyDialog() = capture("history_dialog") {
         HistoryLengthDialog(selected = HistoryLength.FourWeeks, onSelect = {}, onDismiss = {})

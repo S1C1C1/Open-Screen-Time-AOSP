@@ -9,6 +9,7 @@ import androidx.datastore.preferences.core.stringPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
+import org.openscreentime.blocking.LimitMode
 
 /** One settings file in the app's private storage. */
 val Context.settingsDataStore: DataStore<Preferences> by preferencesDataStore(name = "settings")
@@ -25,6 +26,9 @@ class DataStoreSettingsRepository(
             historyLength = prefs[HISTORY_LENGTH]
                 ?.let { saved -> HistoryLength.entries.find { it.name == saved } }
                 ?: HistoryLength.Default,
+            limitMode = prefs[LIMIT_MODE]
+                ?.let { saved -> LimitMode.entries.find { it.name == saved } }
+                ?: LimitMode.Default,
         )
     }
 
@@ -44,11 +48,18 @@ class DataStoreSettingsRepository(
         dataStore.edit { prefs -> prefs[HISTORY_LENGTH] = length.name }
     }
 
+    override suspend fun setLimitMode(mode: LimitMode) {
+        dataStore.edit { prefs -> prefs[LIMIT_MODE] = mode.name }
+    }
+
     private companion object {
         val ONBOARDING_COMPLETED = booleanPreferencesKey("onboarding_completed")
         val TRACKING_ENABLED = booleanPreferencesKey("tracking_enabled")
 
         // Saved by name. Don't rename HistoryLength values without migrating.
         val HISTORY_LENGTH = stringPreferencesKey("history_length")
+
+        // Saved by name. Don't rename LimitMode values without migrating.
+        val LIMIT_MODE = stringPreferencesKey("limit_mode")
     }
 }

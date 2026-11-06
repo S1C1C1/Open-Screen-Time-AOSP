@@ -20,7 +20,11 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import org.openscreentime.blocking.BlockDecision
+import org.openscreentime.blocking.BlockReason
 import org.openscreentime.ui.allowed.AlwaysAllowedScreen
+import org.openscreentime.ui.block.BlockActions
+import org.openscreentime.ui.block.BlockScreen
 import org.openscreentime.ui.appdetail.AppDetailScreen
 import kotlinx.coroutines.flow.map
 import org.openscreentime.limits.AppLimit
@@ -47,6 +51,7 @@ fun OpenScreenTimeApp(
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val pinUi by viewModel.pinFlow.ui.collectAsStateWithLifecycle()
+    val blockUi by viewModel.blockScreenUi.collectAsStateWithLifecycle()
 
     Box(Modifier.fillMaxSize()) {
         when (state.screen) {
@@ -68,6 +73,22 @@ fun OpenScreenTimeApp(
                 )
             }
             AppScreen.Home -> MainNavigation(viewModel, state)
+        }
+
+        blockUi?.let { ui ->
+            BackHandler(onBack = viewModel::closeBlockScreen)
+            BlockScreen(
+                ui = ui,
+                actions = remember(viewModel) {
+                    BlockActions(
+                        onClose = viewModel::closeBlockScreen,
+                        onOneMoreMinute = viewModel::blockOneMoreMinute,
+                        onIgnore = viewModel::blockIgnore,
+                        onEnterPin = viewModel::blockEnterPin,
+                        onUnlock = viewModel::blockUnlock,
+                    )
+                },
+            )
         }
 
         pinUi?.let { ui ->
@@ -105,6 +126,8 @@ private fun MainNavigation(viewModel: MainViewModel, state: AppUiState) {
                 downtimeSummary = formatDowntimeStatus(downtime.status, downtime.today, resources, locale, use24Hour),
                 onDowntimeClick = { navController.navigate(Routes.DOWNTIME) },
                 alwaysAllowedCount = state.alwaysAllowedCount,
+                limitMode = state.limitMode,
+                onLimitModeChange = viewModel::setLimitMode,
                 onAlwaysAllowedClick = { navController.navigate(Routes.ALLOWED) },
                 status = state.homeStatus,
                 dashboard = state.dashboard,
@@ -163,6 +186,9 @@ private fun MainNavigation(viewModel: MainViewModel, state: AppUiState) {
                 onChange = viewModel::saveDowntime,
                 onBack = { navController.popBackStack() },
                 onSetPinClick = viewModel::startPinSetup,
+                onPreviewBlock = {
+                    viewModel.previewBlockScreen(state.dashboard?.apps?.firstOrNull()?.packageName, BlockReason.Downtime)
+                },
             )
         }
         composable(Routes.ADD_LIMIT) {
@@ -208,7 +234,14 @@ private fun MainNavigation(viewModel: MainViewModel, state: AppUiState) {
             val packageName = entry.arguments?.getString(Routes.ARG_PACKAGE).orEmpty()
             val detail by remember(packageName) { viewModel.appDetail(packageName) }
                 .collectAsStateWithLifecycle(initialValue = null)
+            val decision by remember(packageName) { viewModel.blockDecision(packageName) }
+                .collectAsStateWithLifecycle(initialValue = null)
             AppDetailScreen(
+                decision = decision,
+                onPreviewBlock = {
+                    val reason = (decision as? BlockDecision.Blocked)?.reason ?: BlockReason.LimitReached
+                    viewModel.previewBlockScreen(packageName, reason)
+                },
                 detail = detail,
                 onBack = { navController.popBackStack() },
                 onLimitClick = { navController.navigate(Routes.limitEditor(packageName)) },

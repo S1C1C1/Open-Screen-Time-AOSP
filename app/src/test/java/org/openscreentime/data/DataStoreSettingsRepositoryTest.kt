@@ -81,6 +81,14 @@ class DataStoreSettingsRepositoryTest {
     }
 
     @Test
+    fun limitModeDefaultsToStrictAndCanBeChanged() = runBlocking {
+        val repository = newRepository("mode.preferences_pb")
+        assertEquals(org.openscreentime.blocking.LimitMode.Strict, repository.settings.first().limitMode)
+        repository.setLimitMode(org.openscreentime.blocking.LimitMode.Reminder)
+        assertEquals(org.openscreentime.blocking.LimitMode.Reminder, repository.settings.first().limitMode)
+    }
+
+    @Test
     fun unknownSavedHistoryLengthFallsBackToDefault() = runBlocking {
         val dataStore = PreferenceDataStoreFactory.create(scope = scope) {
             tempFolder.root.resolve("odd.preferences_pb")
