@@ -68,6 +68,8 @@ fun HomeScreen(
     pinSet: Boolean = false,
     limitCount: Int = 0,
     onLimitsClick: () -> Unit = {},
+    downtimeSummary: String? = null,
+    onDowntimeClick: () -> Unit = {},
     onSelectDay: (LocalDate) -> Unit = {},
     onAppClick: (String) -> Unit = {},
     onPinClick: () -> Unit = {},
@@ -104,6 +106,12 @@ fun HomeScreen(
                     pluralStringResource(R.plurals.limits_count, limitCount, limitCount)
                 },
                 onClick = onLimitsClick,
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainer)
+            SettingsRow(
+                title = stringResource(R.string.downtime_title),
+                summary = downtimeSummary ?: stringResource(R.string.downtime_status_off),
+                onClick = onDowntimeClick,
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainer)
             TrackingSwitchRow(

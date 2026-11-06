@@ -132,6 +132,26 @@
         <item quantity="other">%d digits entered</item>
     </plurals>
 
+    <!-- Downtime -->
+    <string name="downtime_title">Downtime</string>
+    <string name="downtime_description">During downtime, only always allowed apps can be used.</string>
+    <string name="downtime_switch">Use downtime</string>
+    <string name="downtime_pin_reminder">Set a PIN so only you can change downtime.</string>
+    <string name="downtime_every_day">Every day</string>
+    <string name="downtime_custom_days">Custom days</string>
+    <string name="downtime_starts">Starts</string>
+    <string name="downtime_ends">Ends</string>
+    <string name="downtime_ends_next_day">Ends (next day)</string>
+    <string name="downtime_next_day">next day</string>
+    <string name="downtime_window">%1$s – %2$s</string>
+    <string name="downtime_status_off">Off</string>
+    <string name="downtime_status_active">On now, until %1$s</string>
+    <string name="downtime_status_active_day">On now, until %1$s at %2$s</string>
+    <string name="downtime_status_today">Starts today at %1$s</string>
+    <string name="downtime_status_tomorrow">Starts tomorrow at %1$s</string>
+    <string name="downtime_status_day">Starts %1$s at %2$s</string>
+    <string name="downtime_blocking_coming">Blocking apps during downtime comes in a later test build.</string>
+
     <string name="cancel">Cancel</string>
     <string name="home_privacy_note">All screen time data stays on this phone. This app has no internet access.</string>
 </resources>

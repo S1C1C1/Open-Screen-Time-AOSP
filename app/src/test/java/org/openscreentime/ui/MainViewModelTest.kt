@@ -12,6 +12,8 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.openscreentime.data.AppSettings
 import org.openscreentime.data.HistoryLength
+import org.openscreentime.downtime.DowntimeSchedule
+import org.openscreentime.downtime.DowntimeStatus
 import org.openscreentime.limits.AppLimit
 import org.openscreentime.pin.pin
 import org.openscreentime.usage.InstalledApp
@@ -41,6 +43,7 @@ class MainViewModelTest {
 
     private val pinManager = testPinManager()
     private val limits = FakeLimitRepository()
+    private val downtime = FakeDowntimeRepository()
     private var installed = listOf(
         InstalledApp("chat", "Chat"),
         InstalledApp("mail", "Mail"),
@@ -55,6 +58,7 @@ class MainViewModelTest {
         pinManager = pinManager,
         limitRepository = limits,
         installedApps = { installed },
+        downtimeRepository = downtime,
         clock = clock,
         firstDayOfWeek = DayOfWeek.SUNDAY,
     )
@@ -481,5 +485,44 @@ class MainViewModelTest {
 
         val available = runBlocking { viewModel.appsWithoutLimit().first() }
         assertEquals(listOf("mail"), available.map { it.packageName })
+    }
+
+    // --- Downtime ---
+
+    @Test
+    fun downtimeStatusUsesTheSavedSchedule() {
+        // The clock is Thursday 12:00 UTC; default downtime is 21:00–07:00.
+        downtime.schedule.value = DowntimeSchedule(enabled = true)
+        val status = newViewModel().let {
+            it.currentState()
+            it.downtime.value.status
+        }
+        assertEquals(DowntimeStatus.StartsAt(today.atTime(21, 0).atZone(zone)), status)
+    }
+
+    @Test
+    fun withoutAPinDowntimeChangesSaveStraightAway() {
+        val viewModel = newViewModel()
+        viewModel.saveDowntime(DowntimeSchedule(enabled = true))
+        viewModel.currentState()
+        assertTrue(downtime.schedule.value.enabled)
+    }
+
+    @Test
+    fun withAPinDowntimeChangesAskForIt() {
+        runBlocking { pinManager.setInitialPin(pin("4826")) }
+        val viewModel = newViewModel()
+        viewModel.saveDowntime(DowntimeSchedule(enabled = true))
+        viewModel.currentState()
+        assertFalse(downtime.schedule.value.enabled)
+
+        viewModel.enterPin("4826")
+        assertTrue(downtime.schedule.value.enabled)
+    }
+
+    @Test
+    fun daysAreInTheRegionsOrder() {
+        assertEquals(java.time.DayOfWeek.SUNDAY, newViewModel().daysInOrder.first())
+        assertEquals(7, newViewModel().daysInOrder.size)
     }
 }
