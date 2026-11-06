@@ -192,6 +192,7 @@ private fun MainNavigation(viewModel: MainViewModel, state: AppUiState) {
         composable(Routes.BLOCKING) {
             val enforcement by viewModel.enforcementMode.collectAsStateWithLifecycle()
             BlockingStatusScreen(
+                pinSet = state.pinSet,
                 mode = enforcement,
                 onBack = { navController.popBackStack() },
                 onRemoveDeviceOwner = viewModel::removeDeviceOwner,

@@ -8,6 +8,8 @@ import org.openscreentime.data.UsageDatabase
 import org.openscreentime.data.settingsDataStore
 import org.openscreentime.admin.AndroidDeviceOwner
 import org.openscreentime.admin.DeviceOwner
+import org.openscreentime.admin.DevicePolicyProtectionActions
+import org.openscreentime.admin.SelfProtection
 import org.openscreentime.allowed.AlwaysAllowedPolicy
 import org.openscreentime.allowed.AlwaysAllowedRepository
 import org.openscreentime.allowed.AndroidSystemApps
@@ -101,6 +103,8 @@ class AppContainer(context: Context) {
     val overrideRepository: OverrideRepository = DataStoreOverrideRepository(appContext.overrideDataStore)
 
     val deviceOwner: DeviceOwner = AndroidDeviceOwner(appContext)
+
+    val selfProtection = SelfProtection(deviceOwner, DevicePolicyProtectionActions(appContext))
 
     val restrictionApplier: RestrictionApplier =
         ModeAwareRestrictionApplier(deviceOwner, DevicePolicyRestrictionApplier(appContext))

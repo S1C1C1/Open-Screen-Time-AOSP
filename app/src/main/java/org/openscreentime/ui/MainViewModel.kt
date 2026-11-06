@@ -28,6 +28,7 @@ import org.openscreentime.data.HistoryLength
 import org.openscreentime.data.SettingsRepository
 import org.openscreentime.admin.DeviceOwner
 import org.openscreentime.admin.EnforcementMode
+import org.openscreentime.admin.SelfProtection
 import org.openscreentime.allowed.AllowedApp
 import org.openscreentime.allowed.AlwaysAllowedPolicy
 import org.openscreentime.allowed.AlwaysAllowedRepository
@@ -97,6 +98,7 @@ class MainViewModel(
     private val restrictionsRepository: RestrictionsRepository? = null,
     private val restrictionApplier: RestrictionApplier = RestrictionApplier {},
     private val deviceClock: DeviceClock? = null,
+    private val selfProtection: SelfProtection? = null,
     private val clock: Clock = Clock.systemDefaultZone(),
     /** First day of the week, from the phone's region (Sunday in the US, Monday in most of Europe). */
     private val firstDayOfWeek: DayOfWeek = WeekFields.of(Locale.getDefault()).firstDayOfWeek,
@@ -322,6 +324,13 @@ class MainViewModel(
 
     private val enforcement = MutableStateFlow(deviceOwner.mode())
 
+    init {
+        // Self-protection follows the PIN: on as soon as one is set (device-owner mode).
+        viewModelScope.launch {
+            pinManager.isPinSet.collect { pinSet -> selfProtection?.update(pinSet) }
+        }
+    }
+
     /** Whether apps can really be blocked (device owner) or only previewed. */
     val enforcementMode: StateFlow<EnforcementMode> = enforcement
 
@@ -333,6 +342,7 @@ class MainViewModel(
         // Undo everything this app set before giving up control.
         appBlocker.setBlockedApps(emptySet())
         restrictionApplier.apply(emptySet())
+        selfProtection?.removeAll()
         deviceOwner.remove()
         enforcement.value = deviceOwner.mode()
     }
@@ -566,6 +576,7 @@ class MainViewModel(
                     container.restrictionsRepository,
                     container.restrictionApplier,
                     container.deviceClock,
+                    container.selfProtection,
                 )
             }
         }

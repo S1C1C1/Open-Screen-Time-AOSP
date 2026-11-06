@@ -39,6 +39,7 @@ fun BlockingStatusScreen(
     onBack: () -> Unit,
     onRemoveDeviceOwner: () -> Unit,
     modifier: Modifier = Modifier,
+    pinSet: Boolean = false,
 ) {
     var confirmRemove by rememberSaveable { mutableStateOf(false) }
 
@@ -98,6 +99,25 @@ fun BlockingStatusScreen(
             }
             FootnoteText(stringResource(R.string.blocking_setup_footnote))
         } else {
+            SettingsCard {
+                Column(Modifier.padding(20.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    Text(stringResource(R.string.protection_title), style = MaterialTheme.typography.titleMedium)
+                    if (pinSet) {
+                        listOf(
+                            R.string.protection_uninstall,
+                            R.string.protection_force_stop,
+                            R.string.protection_notifications,
+                            R.string.protection_safe_mode,
+                        ).forEach { Text("• " + stringResource(it), style = MaterialTheme.typography.bodyMedium) }
+                    } else {
+                        Text(
+                            stringResource(R.string.protection_needs_pin),
+                            style = MaterialTheme.typography.bodyMedium,
+                            color = MaterialTheme.colorScheme.onSurfaceVariant,
+                        )
+                    }
+                }
+            }
             OutlinedButton(
                 onClick = { confirmRemove = true },
                 colors = ButtonDefaults.outlinedButtonColors(contentColor = MaterialTheme.colorScheme.error),

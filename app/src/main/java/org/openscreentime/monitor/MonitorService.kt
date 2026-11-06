@@ -105,6 +105,9 @@ class MonitorService : Service() {
         val limits = container.limitRepository.limits.first()
         val downtime = container.downtimeRepository.schedule.first()
 
+        // Self-protection (cheap and idempotent): makes sure it's in place after a restart or update.
+        container.selfProtection.update(container.pinManager.isPinSet.first())
+
         // Restrictions: switch them back on as soon as a 15-minute lift ends.
         val restrictions = container.restrictionsRepository.state.first()
         container.restrictionApplier.apply(RestrictionRules.active(restrictions, container.deviceClock))

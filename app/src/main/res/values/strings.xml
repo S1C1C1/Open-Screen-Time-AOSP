@@ -254,6 +254,14 @@
     <string name="restriction_allowed_until">Allowed until %1$s, then switches back on</string>
     <string name="restrictions_footnote">Factory reset is never blocked. It\'s the way to recover the phone if the PIN is forgotten.</string>
 
+    <!-- Self-protection -->
+    <string name="protection_title">Protection</string>
+    <string name="protection_uninstall">Screen time can\'t be uninstalled or disabled.</string>
+    <string name="protection_force_stop">It can\'t be force-stopped, and its data can\'t be cleared.</string>
+    <string name="protection_notifications">Its notifications can\'t be turned off.</string>
+    <string name="protection_safe_mode">Starting in safe mode is blocked. Factory reset still works.</string>
+    <string name="protection_needs_pin">Set a screen time PIN to protect Screen time from being uninstalled, force-stopped or switched off.</string>
+
     <string name="cancel">Cancel</string>
     <string name="home_privacy_note">All screen time data stays on this phone. This app has no internet access.</string>
 </resources>

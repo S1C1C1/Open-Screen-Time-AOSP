@@ -357,6 +357,11 @@ class ScreenshotTests {
     }
 
     @Test
+    fun blocking_active_protected() = capture("blocking_active_protected") {
+        org.openscreentime.ui.admin.BlockingStatusScreen(org.openscreentime.admin.EnforcementMode.DeviceOwner, {}, {}, pinSet = true)
+    }
+
+    @Test
     fun dashboard_notificationPrompt() = capture("dashboard_notification_prompt") {
         HomeScreen(
             status = HomeStatus.Ready,

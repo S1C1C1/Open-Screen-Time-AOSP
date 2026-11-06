@@ -59,6 +59,7 @@ class MainViewModelTest {
     private val restrictionsRepository = FakeRestrictionsRepository()
     private val applied = mutableListOf<Set<org.openscreentime.restrictions.Restriction>>()
     private val deviceClock = org.openscreentime.pin.FakeDeviceClock()
+    private val protectionActions = org.openscreentime.admin.FakeProtectionActions()
     private var installed = listOf(
         InstalledApp("chat", "Chat"),
         InstalledApp("mail", "Mail"),
@@ -83,6 +84,7 @@ class MainViewModelTest {
         restrictionsRepository = restrictionsRepository,
         restrictionApplier = { applied += listOf(it) },
         deviceClock = deviceClock,
+        selfProtection = org.openscreentime.admin.SelfProtection(deviceOwner, protectionActions),
         clock = clock,
         firstDayOfWeek = DayOfWeek.SUNDAY,
         ioDispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
@@ -824,6 +826,34 @@ class MainViewModelTest {
         viewModel.currentState()
         assertEquals(listOf(emptySet<String>()), blocker.calls)
         assertEquals(EnforcementMode.PreviewOnly, viewModel.enforcementMode.value)
+    }
+
+    // --- Self-protection ---
+
+    @Test
+    fun selfProtectionTurnsOnWhenAPinIsSet() {
+        deviceOwner.current = EnforcementMode.DeviceOwner
+        val viewModel = newViewModel()
+        viewModel.currentState()
+        assertTrue(protectionActions.allOff)
+
+        runBlocking { pinManager.setInitialPin(pin("4826")) }
+        viewModel.currentState()
+        assertTrue(protectionActions.allOn)
+    }
+
+    @Test
+    fun removingDeviceOwnerUndoesSelfProtection() {
+        deviceOwner.current = EnforcementMode.DeviceOwner
+        runBlocking { pinManager.setInitialPin(pin("4826")) }
+        val viewModel = newViewModel()
+        viewModel.currentState()
+        assertTrue(protectionActions.allOn)
+
+        viewModel.removeDeviceOwner()
+        viewModel.currentState()
+        viewModel.enterPin("4826")
+        assertTrue(protectionActions.allOff)
     }
 
     // --- Restrictions ---
