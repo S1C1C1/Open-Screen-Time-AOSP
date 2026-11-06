@@ -118,6 +118,8 @@ These are always enforced once a PIN is set, regardless of the options above:
 - Its permissions cannot be revoked.
 - Its settings cannot be changed without the PIN.
 - Turning off screen time entirely requires the PIN.
+- Device-owner mode does this with: blocking uninstall (`setUninstallBlocked`), stopping force stop and clearing data in Settings (`setUserControlDisabledPackages`), keeping the notification permission granted (`setPermissionGrantState`), and blocking safe mode (`no_safe_boot`). A device-owner app also can't be disabled. Without a PIN, all of this is off. **Remove device owner** (PIN) undoes it first.
+- Device-owner mode can't lock usage access on; the fail-safe rule above covers that.
 
 ### 8. Screen time PIN
 
