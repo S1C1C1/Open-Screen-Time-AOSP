@@ -75,6 +75,8 @@ fun HomeScreen(
     onAlwaysAllowedClick: () -> Unit = {},
     limitMode: LimitMode = LimitMode.Default,
     onLimitModeChange: (LimitMode) -> Unit = {},
+    blockingActive: Boolean = false,
+    onBlockingClick: () -> Unit = {},
     onSelectDay: (LocalDate) -> Unit = {},
     onAppClick: (String) -> Unit = {},
     onPinClick: () -> Unit = {},
@@ -104,6 +106,12 @@ fun HomeScreen(
         }
         SectionHeader(stringResource(R.string.dashboard_settings_header))
         SettingsCard {
+            SettingsRow(
+                title = stringResource(R.string.blocking_title),
+                summary = stringResource(if (blockingActive) R.string.blocking_active_summary else R.string.blocking_preview_only),
+                onClick = onBlockingClick,
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainer)
             SettingsRow(
                 title = stringResource(R.string.limits_title),
                 summary = if (limitCount == 0) {

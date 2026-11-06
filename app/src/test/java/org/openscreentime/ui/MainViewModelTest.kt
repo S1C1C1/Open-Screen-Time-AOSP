@@ -12,6 +12,7 @@ import org.junit.Test
 import org.junit.runner.RunWith
 import org.openscreentime.data.AppSettings
 import org.openscreentime.data.HistoryLength
+import org.openscreentime.admin.EnforcementMode
 import org.openscreentime.allowed.AllowedApp
 import org.openscreentime.blocking.BlockDecision
 import org.openscreentime.blocking.BlockReason
@@ -52,6 +53,7 @@ class MainViewModelTest {
     private val downtime = FakeDowntimeRepository()
     private val allowed = FakeAlwaysAllowedRepository()
     private val overrides = FakeOverrideRepository()
+    private val deviceOwner = FakeDeviceOwner()
     private var installed = listOf(
         InstalledApp("chat", "Chat"),
         InstalledApp("mail", "Mail"),
@@ -70,6 +72,7 @@ class MainViewModelTest {
         alwaysAllowedRepository = allowed,
         alwaysAllowedPolicy = testAlwaysAllowedPolicy(),
         overrideRepository = overrides,
+        deviceOwner = deviceOwner,
         clock = clock,
         firstDayOfWeek = DayOfWeek.SUNDAY,
         ioDispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
@@ -754,4 +757,31 @@ class MainViewModelTest {
     }
 
     private fun FakeSettingsRepository.state(mode: LimitMode) = runBlocking { setLimitMode(mode) }
+
+    // --- Device owner ---
+
+    @Test
+    fun enforcementModeIsRefreshedWhenTheAppIsOpened() {
+        val viewModel = newViewModel()
+        assertEquals(EnforcementMode.PreviewOnly, viewModel.enforcementMode.value)
+
+        // Set up from a computer while the app was in the background.
+        deviceOwner.current = EnforcementMode.DeviceOwner
+        viewModel.onAppVisible()
+        assertEquals(EnforcementMode.DeviceOwner, viewModel.enforcementMode.value)
+    }
+
+    @Test
+    fun removingDeviceOwnerNeedsThePinOnceSet() {
+        deviceOwner.current = EnforcementMode.DeviceOwner
+        runBlocking { pinManager.setInitialPin(pin("4826")) }
+        val viewModel = newViewModel()
+
+        viewModel.removeDeviceOwner()
+        viewModel.currentState()
+        assertEquals(EnforcementMode.DeviceOwner, viewModel.enforcementMode.value)
+
+        viewModel.enterPin("4826")
+        assertEquals(EnforcementMode.PreviewOnly, viewModel.enforcementMode.value)
+    }
 }

@@ -40,6 +40,7 @@ class NavigationTest {
             alwaysAllowedRepository = FakeAlwaysAllowedRepository(),
             alwaysAllowedPolicy = testAlwaysAllowedPolicy(),
             overrideRepository = FakeOverrideRepository(),
+            deviceOwner = FakeDeviceOwner(),
             clock = Clock.fixed(SampleUsage.today.atTime(12, 0).toInstant(ZoneOffset.UTC), ZoneOffset.UTC),
             firstDayOfWeek = SampleUsage.firstDayOfWeek,
             ioDispatcher = kotlinx.coroutines.Dispatchers.Unconfined,

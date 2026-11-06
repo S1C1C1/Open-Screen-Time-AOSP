@@ -25,6 +25,8 @@ import kotlinx.coroutines.withContext
 import org.openscreentime.OpenScreenTimeApplication
 import org.openscreentime.data.HistoryLength
 import org.openscreentime.data.SettingsRepository
+import org.openscreentime.admin.DeviceOwner
+import org.openscreentime.admin.EnforcementMode
 import org.openscreentime.allowed.AllowedApp
 import org.openscreentime.allowed.AlwaysAllowedPolicy
 import org.openscreentime.allowed.AlwaysAllowedRepository
@@ -77,6 +79,7 @@ class MainViewModel(
     private val alwaysAllowedRepository: AlwaysAllowedRepository,
     private val alwaysAllowedPolicy: AlwaysAllowedPolicy,
     private val overrideRepository: OverrideRepository,
+    private val deviceOwner: DeviceOwner,
     private val clock: Clock = Clock.systemDefaultZone(),
     /** First day of the week, from the phone's region (Sunday in the US, Monday in most of Europe). */
     private val firstDayOfWeek: DayOfWeek = WeekFields.of(Locale.getDefault()).firstDayOfWeek,
@@ -158,6 +161,8 @@ class MainViewModel(
         // Coming back to the app starts again from today.
         selectedDay.value = null
         now.value = clock.instant()
+        // Device-owner status can change from a computer while the app is in the background.
+        enforcement.value = deviceOwner.mode()
         refreshUsageAccess()
         syncUsage()
     }
@@ -296,6 +301,20 @@ class MainViewModel(
 
     /** The block screen preview, or null when it's closed. */
     val blockScreenUi: StateFlow<BlockScreenUi?> = blockScreen
+
+    private val enforcement = MutableStateFlow(deviceOwner.mode())
+
+    /** Whether apps can really be blocked (device owner) or only previewed. */
+    val enforcementMode: StateFlow<EnforcementMode> = enforcement
+
+    /**
+     * Gives up device-owner control so the app can be uninstalled. Needs the
+     * PIN when one is set, since it switches off all blocking.
+     */
+    fun removeDeviceOwner() = withPin {
+        deviceOwner.remove()
+        enforcement.value = deviceOwner.mode()
+    }
 
     /** Whether [packageName] would be blocked right now, and why. */
     fun blockDecision(packageName: String): Flow<BlockDecision> = combine(
@@ -463,6 +482,7 @@ class MainViewModel(
                     container.alwaysAllowedRepository,
                     container.alwaysAllowedPolicy,
                     container.overrideRepository,
+                    container.deviceOwner,
                 )
             }
         }

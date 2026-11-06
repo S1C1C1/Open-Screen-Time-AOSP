@@ -146,7 +146,13 @@ These are always enforced once a PIN is set, regardless of the options above:
 - The same app can be set as the device owner with an ADB command on a freshly reset phone.
 - It uses Android's device policy APIs for suspending apps and applying restrictions.
 - Some protections may be weaker than in system app mode. These should be documented.
-- **Build system app mode first.** Design the code so the enforcement layer can be swapped between the two modes.
+- Design the code so the enforcement layer can be swapped between the two modes. System app mode remains the main target, but device-owner mode is built first (phase 2) because it can be tested on an ordinary phone; system app mode follows in phase 3 using the same rules.
+- Setup: on a freshly reset phone with no accounts, run `adb shell dpm set-device-owner org.openscreentime/.admin.ScreenTimeAdmin`. Step-by-step instructions are in `docs/device-owner-setup.md`.
+- Removal: **Remove device owner** in the app (PIN required) gives up device-owner control so the app can be uninstalled. Factory reset also removes it.
+- Background tracking runs as a foreground service with a quiet, low-priority "Screen time is on" notification, which Android requires for a service that runs continuously. It pauses while the screen is off.
+- Device-owner mode can't lock usage access on. If usage access is turned off, the app fails safe: every app except always allowed apps is blocked until it is turned back on.
+- Safe mode is blocked while a PIN is set, because safe mode would switch off a device-owner app. Factory reset is never blocked.
+- Lifting a restriction with the PIN lasts 15 minutes, then the restriction switches back on by itself.
 
 ## Settings integration
 
@@ -206,6 +212,6 @@ Testers should confirm each item on a real device or a GrapheneOS emulator build
 ## Open questions
 
 - **Recovery code.** Should there also be an optional one-time recovery code shown at setup, so a forgotten PIN doesn't always require a factory reset? Factory reset stays available regardless.
-- **Safe mode.** In system app mode, safe mode does not stop the screen time app, since it only disables user-installed apps. In device-owner mode it might, so safe mode may need to be blocked there. Confirm during phase 2 testing.
+- **Safe mode.** In system app mode, safe mode does not stop the screen time app, since it only disables user-installed apps. In device-owner mode it would, so safe mode is blocked there while a PIN is set (decided for phase 2).
 - **Remote management.** How a parent might manage a child's phone from their own phone in a future version, without breaking the no-network rule for the app itself.
 - **GrapheneOS preferences.** How the GrapheneOS team would want this integrated, including whether they prefer a system app, a different design for the PIN, or other changes. Ask before phase 3.
