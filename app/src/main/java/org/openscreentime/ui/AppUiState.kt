@@ -31,6 +31,7 @@ data class AppUiState(
     val pinSet: Boolean = false,
     /** How many apps have a limit. */
     val limitCount: Int = 0,
+    val alwaysAllowedCount: Int = 0,
 ) {
     val historyLength: HistoryLength
         get() = settings?.historyLength ?: HistoryLength.Default

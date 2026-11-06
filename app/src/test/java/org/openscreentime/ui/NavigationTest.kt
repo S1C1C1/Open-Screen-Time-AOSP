@@ -37,8 +37,11 @@ class NavigationTest {
             limitRepository = FakeLimitRepository(),
             installedApps = { listOf(InstalledApp("video", "Video"), InstalledApp("maps", "Maps")) },
             downtimeRepository = FakeDowntimeRepository(),
+            alwaysAllowedRepository = FakeAlwaysAllowedRepository(),
+            alwaysAllowedPolicy = testAlwaysAllowedPolicy(),
             clock = Clock.fixed(SampleUsage.today.atTime(12, 0).toInstant(ZoneOffset.UTC), ZoneOffset.UTC),
             firstDayOfWeek = SampleUsage.firstDayOfWeek,
+            ioDispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
         )
         composeRule.setContent {
             OpenScreenTimeTheme(dynamicColor = false) {
@@ -98,5 +101,17 @@ class NavigationTest {
         composeRule.onNodeWithContentDescription("Back").performClick()
         // The clock is Thursday noon, so the default 9 PM start is later today.
         composeRule.onNodeWithText("Starts today at 9:00", substring = true).performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun addAnAlwaysAllowedApp() {
+        startApp()
+        composeRule.onNodeWithText("Always allowed").performScrollTo().performClick()
+        composeRule.onNodeWithText("Emergency calling").assertIsDisplayed()
+        composeRule.onNodeWithText("Can't be removed").assertIsDisplayed()
+
+        composeRule.onNodeWithText("Add app").performScrollTo().performClick()
+        composeRule.onNodeWithText("Maps").performClick()
+        composeRule.onNodeWithContentDescription("Remove Maps").assertExists()
     }
 }

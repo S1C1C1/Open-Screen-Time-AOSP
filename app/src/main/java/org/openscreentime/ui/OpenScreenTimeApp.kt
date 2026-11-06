@@ -20,6 +20,7 @@ import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
+import org.openscreentime.ui.allowed.AlwaysAllowedScreen
 import org.openscreentime.ui.appdetail.AppDetailScreen
 import kotlinx.coroutines.flow.map
 import org.openscreentime.limits.AppLimit
@@ -103,6 +104,8 @@ private fun MainNavigation(viewModel: MainViewModel, state: AppUiState) {
             HomeScreen(
                 downtimeSummary = formatDowntimeStatus(downtime.status, downtime.today, resources, locale, use24Hour),
                 onDowntimeClick = { navController.navigate(Routes.DOWNTIME) },
+                alwaysAllowedCount = state.alwaysAllowedCount,
+                onAlwaysAllowedClick = { navController.navigate(Routes.ALLOWED) },
                 status = state.homeStatus,
                 dashboard = state.dashboard,
                 historyLength = state.historyLength,
@@ -126,6 +129,27 @@ private fun MainNavigation(viewModel: MainViewModel, state: AppUiState) {
                 onAppClick = { navController.navigate(Routes.limitEditor(it)) },
                 onAddClick = { navController.navigate(Routes.ADD_LIMIT) },
                 onSetPinClick = viewModel::startPinSetup,
+            )
+        }
+        composable(Routes.ALLOWED) {
+            val allowed by viewModel.alwaysAllowed.collectAsStateWithLifecycle()
+            AlwaysAllowedScreen(
+                apps = allowed,
+                pinSet = state.pinSet,
+                onRemove = viewModel::removeAlwaysAllowed,
+                onAddClick = { navController.navigate(Routes.ADD_ALLOWED) },
+                onBack = { navController.popBackStack() },
+                onSetPinClick = viewModel::startPinSetup,
+            )
+        }
+        composable(Routes.ADD_ALLOWED) {
+            val apps by remember { viewModel.appsNotAlwaysAllowed() }.collectAsStateWithLifecycle(initialValue = emptyList())
+            AppPickerScreen(
+                apps = apps,
+                onBack = { navController.popBackStack() },
+                onAppClick = { packageName ->
+                    viewModel.addAlwaysAllowed(packageName) { navController.popBackStack() }
+                },
             )
         }
         composable(Routes.DOWNTIME) {
@@ -163,7 +187,10 @@ private fun MainNavigation(viewModel: MainViewModel, state: AppUiState) {
             val current by remember(packageName) { viewModel.limitFor(packageName).map { LoadedLimit(it) } }
                 .collectAsStateWithLifecycle(initialValue = null)
             current?.let { loaded ->
+                val alwaysAllowed by remember(packageName) { viewModel.isAlwaysAllowed(packageName) }
+                    .collectAsStateWithLifecycle(initialValue = false)
                 LimitEditorScreen(
+                    alwaysAllowed = alwaysAllowed,
                     packageName = packageName,
                     label = remember(packageName) { viewModel.labelFor(packageName) },
                     current = loaded.limit,
@@ -197,6 +224,8 @@ private object Routes {
 
     const val LIMITS = "limits"
     const val DOWNTIME = "downtime"
+    const val ALLOWED = "allowed"
+    const val ADD_ALLOWED = "allowed/add"
     const val ADD_LIMIT = "limits/add"
     const val LIMIT_EDITOR = "limits/edit/{$ARG_PACKAGE}"
 

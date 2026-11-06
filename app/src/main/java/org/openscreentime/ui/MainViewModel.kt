@@ -8,6 +8,7 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.map
@@ -23,7 +24,11 @@ import kotlinx.coroutines.withContext
 import org.openscreentime.OpenScreenTimeApplication
 import org.openscreentime.data.HistoryLength
 import org.openscreentime.data.SettingsRepository
+import org.openscreentime.allowed.AllowedApp
+import org.openscreentime.allowed.AlwaysAllowedPolicy
+import org.openscreentime.allowed.AlwaysAllowedRepository
 import org.openscreentime.downtime.DowntimeRepository
+import org.openscreentime.ui.allowed.AllowedAppUi
 import org.openscreentime.downtime.DowntimeSchedule
 import org.openscreentime.downtime.DowntimeStatus
 import org.openscreentime.limits.AppLimit
@@ -58,9 +63,13 @@ class MainViewModel(
     private val limitRepository: LimitRepository,
     private val installedApps: InstalledApps,
     private val downtimeRepository: DowntimeRepository,
+    private val alwaysAllowedRepository: AlwaysAllowedRepository,
+    private val alwaysAllowedPolicy: AlwaysAllowedPolicy,
     private val clock: Clock = Clock.systemDefaultZone(),
     /** First day of the week, from the phone's region (Sunday in the US, Monday in most of Europe). */
     private val firstDayOfWeek: DayOfWeek = WeekFields.of(Locale.getDefault()).firstDayOfWeek,
+    /** For slower lookups like the installed app list. Tests pass one that runs straight away. */
+    private val ioDispatcher: CoroutineDispatcher = Dispatchers.IO,
 ) : ViewModel() {
 
     /** The PIN screens. */
@@ -100,6 +109,14 @@ class MainViewModel(
         buildDashboard(usage, day, selected, firstDayOfWeek, appLabels, limits.map { it.packageName }.toSet())
     }
 
+    /** The always allowed list, with names. */
+    val alwaysAllowed: StateFlow<List<AllowedAppUi>> = alwaysAllowedRepository.config
+        .map { config ->
+            withContext(ioDispatcher) { alwaysAllowedPolicy.listed(config) }
+                .map { AllowedAppUi(it, appLabels.labelFor(it.packageName)) }
+        }
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
     /** Apps with limits, with their names, sorted by name. */
     val limitedApps: StateFlow<List<LimitedApp>> = limitRepository.limits
         .map { limits ->
@@ -111,9 +128,13 @@ class MainViewModel(
         combine(settingsRepository.settings, hasUsageAccess, usageAccessGuideOpen, ::Triple),
         dashboard,
         pinManager.isPinSet,
-        limitedApps,
-    ) { (settings, hasAccess, guideOpen), dashboard, pinSet, limited ->
-        AppUiState(settings, hasAccess, guideOpen, dashboard, pinSet, limitCount = limited.size)
+        combine(limitedApps, alwaysAllowed, ::Pair),
+    ) { (settings, hasAccess, guideOpen), dashboard, pinSet, (limited, allowed) ->
+        AppUiState(
+            settings, hasAccess, guideOpen, dashboard, pinSet,
+            limitCount = limited.size,
+            alwaysAllowedCount = allowed.size,
+        )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, AppUiState())
 
     /**
@@ -219,7 +240,7 @@ class MainViewModel(
     /** Apps a new limit can be added for: launchable apps that don't have one yet. */
     fun appsWithoutLimit(): Flow<List<InstalledApp>> = limitRepository.limits.map { limits ->
         val limited = limits.map { it.packageName }.toSet()
-        withContext(Dispatchers.IO) { installedApps.launchableApps() }.filter { it.packageName !in limited }
+        withContext(ioDispatcher) { installedApps.launchableApps() }.filter { it.packageName !in limited }
     }
 
     /**
@@ -230,6 +251,31 @@ class MainViewModel(
         if (limit == null) limitRepository.remove(packageName) else limitRepository.save(limit)
         onDone()
     }
+
+    /** Removes an app from the always allowed list, asking for the PIN first when one is set. */
+    fun removeAlwaysAllowed(app: AllowedApp) = withPin {
+        val config = alwaysAllowedRepository.config.first()
+        alwaysAllowedRepository.save(alwaysAllowedPolicy.remove(app, config))
+    }
+
+    /** Adds an app to the always allowed list, asking for the PIN first when one is set. */
+    fun addAlwaysAllowed(packageName: String, onDone: () -> Unit) = withPin {
+        val config = alwaysAllowedRepository.config.first()
+        alwaysAllowedRepository.save(alwaysAllowedPolicy.add(packageName, config))
+        onDone()
+    }
+
+    /** Apps that can be added: launchable apps not already always allowed. */
+    fun appsNotAlwaysAllowed(): Flow<List<InstalledApp>> = alwaysAllowed.map { allowed ->
+        val listed = allowed.map { it.app.packageName }.toSet()
+        withContext(ioDispatcher) { installedApps.launchableApps() }.filter { it.packageName !in listed }
+    }
+
+    /** Whether [packageName] is never blocked; shown as a note in the limit editor. */
+    fun isAlwaysAllowed(packageName: String): Flow<Boolean> =
+        alwaysAllowedRepository.config.map { config ->
+            withContext(ioDispatcher) { alwaysAllowedPolicy.isAlwaysAllowed(packageName, config) }
+        }
 
     /** Saves a changed downtime schedule, asking for the PIN first when one is set. */
     fun saveDowntime(schedule: DowntimeSchedule) = withPin {
@@ -286,6 +332,8 @@ class MainViewModel(
                     container.limitRepository,
                     container.installedApps,
                     container.downtimeRepository,
+                    container.alwaysAllowedRepository,
+                    container.alwaysAllowedPolicy,
                 )
             }
         }
