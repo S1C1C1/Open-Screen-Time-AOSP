@@ -69,6 +69,18 @@
         android:supportsRtl="true"
         android:theme="@style/Theme.OpenScreenTime">
 
+        <!--
+            Shown over an app when it's blocked (device-owner mode). Its own
+            task, left out of recent apps, so it can't be used to get back
+            into the blocked app.
+        -->
+        <activity
+            android:name=".blocking.BlockActivity"
+            android:excludeFromRecents="true"
+            android:exported="false"
+            android:launchMode="singleTask"
+            android:taskAffinity="org.openscreentime.block" />
+
         <service
             android:name=".monitor.MonitorService"
             android:exported="false"

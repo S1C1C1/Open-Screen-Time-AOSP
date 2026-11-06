@@ -30,7 +30,10 @@ import org.openscreentime.admin.EnforcementMode
 import org.openscreentime.allowed.AllowedApp
 import org.openscreentime.allowed.AlwaysAllowedPolicy
 import org.openscreentime.allowed.AlwaysAllowedRepository
+import org.openscreentime.blocking.AppBlocker
 import org.openscreentime.blocking.AppOverride
+import org.openscreentime.blocking.PreviewOnlyAppBlocker
+import org.openscreentime.monitor.MonitorService
 import org.openscreentime.blocking.BlockDecision
 import org.openscreentime.blocking.BlockReason
 import org.openscreentime.blocking.BlockRules
@@ -80,6 +83,9 @@ class MainViewModel(
     private val alwaysAllowedPolicy: AlwaysAllowedPolicy,
     private val overrideRepository: OverrideRepository,
     private val deviceOwner: DeviceOwner,
+    private val appBlocker: AppBlocker = PreviewOnlyAppBlocker(),
+    /** Asks the background service to re-check blocking now, e.g. after extra time is given. */
+    private val requestEnforcementCheck: () -> Unit = {},
     private val clock: Clock = Clock.systemDefaultZone(),
     /** First day of the week, from the phone's region (Sunday in the US, Monday in most of Europe). */
     private val firstDayOfWeek: DayOfWeek = WeekFields.of(Locale.getDefault()).firstDayOfWeek,
@@ -312,6 +318,8 @@ class MainViewModel(
      * PIN when one is set, since it switches off all blocking.
      */
     fun removeDeviceOwner() = withPin {
+        // Unpause everything this app paused before giving up control.
+        appBlocker.setBlockedApps(emptySet())
         deviceOwner.remove()
         enforcement.value = deviceOwner.mode()
     }
@@ -343,7 +351,14 @@ class MainViewModel(
      * particular app) blocked for [reason], using the current mode and
      * what's been used today.
      */
-    fun previewBlockScreen(packageName: String?, reason: BlockReason) {
+    fun previewBlockScreen(packageName: String?, reason: BlockReason) = openBlockScreen(packageName, reason, real = false)
+
+    /**
+     * Opens the block screen for [packageName] blocked for [reason]. A real
+     * one (device-owner mode) has no preview banner; its extra time unpauses
+     * the app straight away.
+     */
+    fun openBlockScreen(packageName: String?, reason: BlockReason, real: Boolean) {
         viewModelScope.launch {
             val instant = clock.instant()
             now.value = instant
@@ -363,6 +378,7 @@ class MainViewModel(
                 blockedUntil = until,
                 mode = mode,
                 graceAvailable = mode == LimitMode.Grace && override.graceUsedOn != day,
+                isPreview = !real,
             )
         }
     }
@@ -419,6 +435,7 @@ class MainViewModel(
             if (ui.packageName.isNotEmpty()) action(ui, instant)
             blockScreen.value = null
             now.value = clock.instant()
+            requestEnforcementCheck()
         }
     }
 
@@ -469,7 +486,8 @@ class MainViewModel(
 
         fun factory(context: Context): ViewModelProvider.Factory = viewModelFactory {
             initializer {
-                val container = (context.applicationContext as OpenScreenTimeApplication).container
+                val appContext = context.applicationContext
+                val container = (appContext as OpenScreenTimeApplication).container
                 MainViewModel(
                     container.settingsRepository,
                     container.usageAccessChecker,
@@ -483,6 +501,8 @@ class MainViewModel(
                     container.alwaysAllowedPolicy,
                     container.overrideRepository,
                     container.deviceOwner,
+                    container.appBlocker,
+                    { MonitorService.checkNow(appContext) },
                 )
             }
         }

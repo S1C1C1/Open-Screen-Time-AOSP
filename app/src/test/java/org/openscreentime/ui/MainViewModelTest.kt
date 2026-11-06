@@ -54,6 +54,8 @@ class MainViewModelTest {
     private val allowed = FakeAlwaysAllowedRepository()
     private val overrides = FakeOverrideRepository()
     private val deviceOwner = FakeDeviceOwner()
+    private val blocker = RecordingAppBlocker()
+    private var enforcementChecks = 0
     private var installed = listOf(
         InstalledApp("chat", "Chat"),
         InstalledApp("mail", "Mail"),
@@ -73,6 +75,8 @@ class MainViewModelTest {
         alwaysAllowedPolicy = testAlwaysAllowedPolicy(),
         overrideRepository = overrides,
         deviceOwner = deviceOwner,
+        appBlocker = blocker,
+        requestEnforcementCheck = { enforcementChecks++ },
         clock = clock,
         firstDayOfWeek = DayOfWeek.SUNDAY,
         ioDispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
@@ -783,5 +787,44 @@ class MainViewModelTest {
 
         viewModel.enterPin("4826")
         assertEquals(EnforcementMode.PreviewOnly, viewModel.enforcementMode.value)
+    }
+
+    // --- Real blocking (device-owner mode) ---
+
+    @Test
+    fun realBlockScreenHasNoPreviewBanner() {
+        val viewModel = newViewModel()
+        viewModel.openBlockScreen("video", BlockReason.LimitReached, real = true)
+        viewModel.currentState()
+        assertFalse(viewModel.blockScreenUi.value!!.isPreview)
+    }
+
+    @Test
+    fun extraTimeAsksForAnImmediateRecheck() {
+        settings.state(LimitMode.Reminder)
+        val viewModel = newViewModel()
+        viewModel.openBlockScreen("video", BlockReason.LimitReached, real = true)
+        viewModel.currentState()
+        viewModel.blockIgnore()
+        viewModel.currentState()
+        assertEquals(1, enforcementChecks)
+    }
+
+    @Test
+    fun removingDeviceOwnerUnpausesEverythingFirst() {
+        deviceOwner.current = EnforcementMode.DeviceOwner
+        val viewModel = newViewModel()
+        viewModel.removeDeviceOwner()
+        viewModel.currentState()
+        assertEquals(listOf(emptySet<String>()), blocker.calls)
+        assertEquals(EnforcementMode.PreviewOnly, viewModel.enforcementMode.value)
+    }
+}
+
+/** Records what blocking was asked for. */
+class RecordingAppBlocker : org.openscreentime.blocking.AppBlocker {
+    val calls = mutableListOf<Set<String>>()
+    override suspend fun setBlockedApps(packages: Set<String>) {
+        calls += packages
     }
 }
