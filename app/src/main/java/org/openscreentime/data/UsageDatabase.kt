@@ -26,6 +26,10 @@ abstract class DailyUsageDao {
     @Query("SELECT * FROM daily_usage WHERE day = :epochDay ORDER BY foreground_ms DESC, package_name")
     abstract fun forDay(epochDay: Long): Flow<List<DailyUsageEntity>>
 
+    /** Every app's time on each day from [fromEpochDay] to [toEpochDay], inclusive. */
+    @Query("SELECT * FROM daily_usage WHERE day BETWEEN :fromEpochDay AND :toEpochDay")
+    abstract fun forDays(fromEpochDay: Long, toEpochDay: Long): Flow<List<DailyUsageEntity>>
+
     @Query("SELECT foreground_ms FROM daily_usage WHERE day = :epochDay AND package_name = :packageName")
     protected abstract suspend fun storedMillis(epochDay: Long, packageName: String): Long?
 

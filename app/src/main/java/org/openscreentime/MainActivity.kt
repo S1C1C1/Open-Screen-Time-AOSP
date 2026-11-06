@@ -6,9 +6,11 @@ import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
 import androidx.activity.enableEdgeToEdge
 import androidx.activity.viewModels
+import androidx.compose.runtime.CompositionLocalProvider
 import org.openscreentime.ui.MainViewModel
 import org.openscreentime.ui.OpenScreenTimeApp
 import org.openscreentime.ui.theme.OpenScreenTimeTheme
+import org.openscreentime.usage.LocalAppIcons
 import org.openscreentime.usage.usageAccessListIntent
 import org.openscreentime.usage.usageAccessSettingsIntent
 
@@ -16,15 +18,19 @@ class MainActivity : ComponentActivity() {
 
     private val viewModel: MainViewModel by viewModels { MainViewModel.factory(this) }
 
+    private val appIcons by lazy { (application as OpenScreenTimeApplication).container.appIcons }
+
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         enableEdgeToEdge()
         setContent {
             OpenScreenTimeTheme {
-                OpenScreenTimeApp(
-                    viewModel = viewModel,
-                    onOpenUsageAccessSettings = ::openUsageAccessSettings,
-                )
+                CompositionLocalProvider(LocalAppIcons provides appIcons) {
+                    OpenScreenTimeApp(
+                        viewModel = viewModel,
+                        onOpenUsageAccessSettings = ::openUsageAccessSettings,
+                    )
+                }
             }
         }
     }

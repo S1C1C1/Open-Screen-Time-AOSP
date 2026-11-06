@@ -8,23 +8,30 @@ import androidx.lifecycle.viewModelScope
 import androidx.lifecycle.viewmodel.initializer
 import androidx.lifecycle.viewmodel.viewModelFactory
 import kotlinx.coroutines.ExperimentalCoroutinesApi
+import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.flatMapLatest
-import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.stateIn
 import kotlinx.coroutines.launch
 import org.openscreentime.OpenScreenTimeApplication
 import org.openscreentime.data.HistoryLength
 import org.openscreentime.data.SettingsRepository
+import org.openscreentime.ui.dashboard.AppDetail
+import org.openscreentime.ui.dashboard.buildAppDetail
+import org.openscreentime.ui.dashboard.buildDashboard
+import org.openscreentime.ui.dashboard.weekContaining
 import org.openscreentime.usage.AppLabels
 import org.openscreentime.usage.UsageAccessChecker
 import org.openscreentime.usage.UsageRepository
 import java.time.Clock
+import java.time.DayOfWeek
 import java.time.LocalDate
+import java.time.temporal.WeekFields
+import java.util.Locale
 
 /** Holds the app's state and handles what the user taps. */
 @OptIn(ExperimentalCoroutinesApi::class)
@@ -34,23 +41,34 @@ class MainViewModel(
     private val usageRepository: UsageRepository,
     private val appLabels: AppLabels,
     private val clock: Clock = Clock.systemDefaultZone(),
+    /** First day of the week, from the phone's region (Sunday in the US, Monday in most of Europe). */
+    private val firstDayOfWeek: DayOfWeek = WeekFields.of(Locale.getDefault()).firstDayOfWeek,
 ) : ViewModel() {
 
     private val hasUsageAccess = MutableStateFlow(usageAccessChecker.hasUsageAccess())
     private val usageAccessGuideOpen = MutableStateFlow(false)
     private val today = MutableStateFlow(LocalDate.now(clock))
 
-    private val todayUsage = today
-        .flatMapLatest { usageRepository.usageForDay(it) }
-        .map { TodayUsage.from(it, appLabels) }
+    /** The day picked in the week chart; null means today. */
+    private val selectedDay = MutableStateFlow<LocalDate?>(null)
+
+    /** Saved usage for every day of the current week. */
+    private val weekUsage = today.flatMapLatest { day ->
+        val week = weekContaining(day, firstDayOfWeek)
+        usageRepository.usageForDays(week.first(), week.last())
+    }
+
+    private val dashboard = combine(weekUsage, today, selectedDay) { usage, day, selected ->
+        buildDashboard(usage, day, selected, firstDayOfWeek, appLabels)
+    }
 
     val uiState: StateFlow<AppUiState> = combine(
         settingsRepository.settings,
         hasUsageAccess,
         usageAccessGuideOpen,
-        todayUsage,
-    ) { settings, hasAccess, guideOpen, usage ->
-        AppUiState(settings, hasAccess, guideOpen, usage)
+        dashboard,
+    ) { settings, hasAccess, guideOpen, dashboard ->
+        AppUiState(settings, hasAccess, guideOpen, dashboard)
     }.stateIn(viewModelScope, SharingStarted.Eagerly, AppUiState())
 
     /**
@@ -59,6 +77,8 @@ class MainViewModel(
      * latest usage.
      */
     fun onAppVisible() {
+        // Coming back to the app starts again from today.
+        selectedDay.value = null
         refreshUsageAccess()
         syncUsage()
     }
@@ -96,6 +116,17 @@ class MainViewModel(
             usageRepository.deleteOldHistory(length)
         }
     }
+
+    /** Shows [day] in the dashboard. Days after today are ignored. */
+    fun selectDay(day: LocalDate) {
+        if (!day.isAfter(today.value)) selectedDay.value = day
+    }
+
+    /** One app's usage this week, for its detail screen. */
+    fun appDetail(packageName: String): Flow<AppDetail> =
+        combine(weekUsage, today) { usage, day ->
+            buildAppDetail(packageName, usage, day, firstDayOfWeek, appLabels)
+        }
 
     fun openUsageAccessGuide() {
         usageAccessGuideOpen.value = true

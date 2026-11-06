@@ -17,6 +17,9 @@ class FakeUsageRepository : UsageRepository {
     override fun usageForDay(day: LocalDate): Flow<List<AppUsageTime>> =
         usageByDay.map { it[day].orEmpty() }
 
+    override fun usageForDays(from: LocalDate, to: LocalDate): Flow<Map<LocalDate, List<AppUsageTime>>> =
+        usageByDay.map { all -> all.filterKeys { !it.isBefore(from) && !it.isAfter(to) } }
+
     override suspend fun sync() {
         syncCount++
     }

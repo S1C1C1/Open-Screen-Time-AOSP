@@ -9,7 +9,9 @@ import org.openscreentime.data.AppSettings
 import org.openscreentime.data.HistoryLength
 import org.openscreentime.usage.AppUsageTime
 import org.robolectric.Shadows.shadowOf
+import kotlinx.coroutines.launch
 import java.time.Clock
+import java.time.DayOfWeek
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -32,6 +34,7 @@ class MainViewModelTest {
         usageRepository = usage,
         appLabels = { pkg -> "Label of $pkg" },
         clock = clock,
+        firstDayOfWeek = DayOfWeek.SUNDAY,
     )
 
     private fun MainViewModel.currentState(): AppUiState {
@@ -149,21 +152,59 @@ class MainViewModelTest {
     }
 
     @Test
-    fun showsTodaysUsageWithAppNames() {
+    fun dashboardShowsTodayWithAppNames() {
         usage.usageByDay.value = mapOf(
             today to listOf(
                 AppUsageTime("mail", Duration.ofMinutes(20)),
                 AppUsageTime("chat", Duration.ofMinutes(45)),
             ),
-            today.minusDays(1) to listOf(AppUsageTime("old", Duration.ofHours(3))),
+            today.minusDays(1) to listOf(AppUsageTime("video", Duration.ofHours(3))),
         )
-        val state = newViewModel().currentState()
+        val dashboard = newViewModel().currentState().dashboard!!
 
-        assertEquals(Duration.ofMinutes(65), state.todayUsage!!.total)
-        assertEquals(
-            listOf(AppTime("Label of chat", Duration.ofMinutes(45)), AppTime("Label of mail", Duration.ofMinutes(20))),
-            state.todayUsage.topApps,
-        )
+        assertEquals(today, dashboard.selectedDay)
+        assertEquals(Duration.ofMinutes(65), dashboard.total)
+        assertEquals(listOf("Label of chat", "Label of mail"), dashboard.apps.map { it.label })
+        // Week of Sunday 1 to Saturday 7 November; yesterday's 3 hours are in it.
+        assertEquals(LocalDate.of(2026, 11, 1), dashboard.week.first().date)
+        assertEquals(Duration.ofHours(3), dashboard.week.first { it.date == today.minusDays(1) }.time)
+    }
+
+    @Test
+    fun selectingADayShowsItAndComingBackResetsToToday() {
+        usage.usageByDay.value = mapOf(today.minusDays(1) to listOf(AppUsageTime("video", Duration.ofHours(3))))
+        val viewModel = newViewModel()
+
+        viewModel.selectDay(today.minusDays(1))
+        assertEquals(Duration.ofHours(3), viewModel.currentState().dashboard!!.total)
+
+        viewModel.onAppVisible()
+        assertEquals(today, viewModel.currentState().dashboard!!.selectedDay)
+    }
+
+    @Test
+    fun futureDaysCannotBeSelected() {
+        val viewModel = newViewModel()
+        viewModel.selectDay(today.plusDays(1))
+        assertEquals(today, viewModel.currentState().dashboard!!.selectedDay)
+    }
+
+    @Test
+    fun appDetailFollowsSavedUsage() {
+        usage.usageByDay.value = mapOf(today to listOf(AppUsageTime("chat", Duration.ofMinutes(30))))
+        val viewModel = newViewModel()
+        var detail: org.openscreentime.ui.dashboard.AppDetail? = null
+        val job = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main.immediate).launch {
+            viewModel.appDetail("chat").collect { detail = it }
+        }
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals("Label of chat", detail!!.label)
+        assertEquals(Duration.ofMinutes(30), detail.today)
+
+        usage.usageByDay.value = mapOf(today to listOf(AppUsageTime("chat", Duration.ofMinutes(50))))
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(Duration.ofMinutes(50), detail.today)
+        job.cancel()
     }
 
     @Test

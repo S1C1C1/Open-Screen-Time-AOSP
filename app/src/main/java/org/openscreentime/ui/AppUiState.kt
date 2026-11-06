@@ -2,9 +2,7 @@ package org.openscreentime.ui
 
 import org.openscreentime.data.AppSettings
 import org.openscreentime.data.HistoryLength
-import org.openscreentime.usage.AppLabels
-import org.openscreentime.usage.AppUsageTime
-import java.time.Duration
+import org.openscreentime.ui.dashboard.Dashboard
 
 /** Which full screen the app shows. */
 enum class AppScreen { Loading, Welcome, UsageAccessGuide, Home }
@@ -28,8 +26,8 @@ data class AppUiState(
     val hasUsageAccess: Boolean = false,
     /** True after the user asked to set up usage access, until it's granted or dismissed. */
     val usageAccessGuideOpen: Boolean = false,
-    /** Today's saved usage, or null before it has been read. */
-    val todayUsage: TodayUsage? = null,
+    /** The usage dashboard, or null before usage has been read. */
+    val dashboard: Dashboard? = null,
 ) {
     val historyLength: HistoryLength
         get() = settings?.historyLength ?: HistoryLength.Default
@@ -53,22 +51,4 @@ fun homeStatusFor(trackingEnabled: Boolean, hasUsageAccess: Boolean): HomeStatus
     !trackingEnabled -> HomeStatus.TrackingOff
     !hasUsageAccess -> HomeStatus.NeedsUsageAccess
     else -> HomeStatus.Ready
-}
-
-/** One app's time, with the name shown to the user. */
-data class AppTime(val label: String, val time: Duration)
-
-/** Today's total and most used apps. */
-data class TodayUsage(val total: Duration, val topApps: List<AppTime>) {
-    companion object {
-        const val TOP_APP_COUNT = 5
-
-        fun from(apps: List<AppUsageTime>, labels: AppLabels): TodayUsage = TodayUsage(
-            total = apps.fold(Duration.ZERO) { sum, app -> sum + app.time },
-            topApps = apps
-                .sortedByDescending { it.time }
-                .take(TOP_APP_COUNT)
-                .map { AppTime(labels.labelFor(it.packageName), it.time) },
-        )
-    }
 }

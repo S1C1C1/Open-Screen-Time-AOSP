@@ -9,17 +9,20 @@ import org.junit.Rule
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.openscreentime.data.HistoryLength
+import org.openscreentime.ui.appdetail.AppDetailScreen
+import org.openscreentime.ui.dashboard.Dashboard
+import org.openscreentime.ui.dashboard.buildAppDetail
 import org.openscreentime.ui.home.HistoryLengthDialog
 import org.openscreentime.ui.home.HomeScreen
 import org.openscreentime.ui.theme.OpenScreenTimeTheme
 import org.openscreentime.ui.usageaccess.UsageAccessScreen
 import org.openscreentime.ui.welcome.WelcomeScreen
 import org.robolectric.annotation.Config
-import java.time.Duration
 
 /**
  * Screenshot tests let the UI be reviewed without a phone. The reference
  * images are in app/src/test/screenshots; see README for how to update them.
+ * The dashboard is captured at full height so everything is visible.
  */
 @RunWith(AndroidJUnit4::class)
 @Config(qualifiers = "w411dp-h891dp-xxhdpi") // Pixel-sized phone
@@ -60,16 +63,29 @@ class ScreenshotTests {
     fun home_needsUsageAccess() = capture("home_needs_usage_access") { HomeFor(HomeStatus.NeedsUsageAccess) }
 
     @Test
-    fun home_ready_light() = capture("home_ready_light") { HomeFor(HomeStatus.Ready) }
+    @Config(qualifiers = "w411dp-h1400dp-xxhdpi")
+    fun dashboard_light() = capture("dashboard_light") { HomeFor(HomeStatus.Ready) }
+
+    @Test
+    @Config(qualifiers = "w411dp-h1400dp-night-xxhdpi")
+    fun dashboard_dark() = capture("dashboard_dark", dark = true) { HomeFor(HomeStatus.Ready) }
+
+    @Test
+    fun dashboard_earlierDaySelected() = capture("dashboard_earlier_day") {
+        HomeFor(HomeStatus.Ready, SampleUsage.dashboard(selectedDay = SampleUsage.today.minusDays(1)))
+    }
+
+    @Test
+    fun dashboard_noUsageYet() = capture("dashboard_no_usage") {
+        HomeFor(HomeStatus.Ready, SampleUsage.dashboard(usage = emptyMap()))
+    }
+
+    @Test
+    fun appDetail_light() = capture("app_detail_light") { BrowserDetail() }
 
     @Test
     @Config(qualifiers = "+night")
-    fun home_ready_dark() = capture("home_ready_dark", dark = true) { HomeFor(HomeStatus.Ready) }
-
-    @Test
-    fun home_ready_noUsageYet() = capture("home_ready_no_usage") {
-        HomeFor(HomeStatus.Ready, todayUsage = TodayUsage(Duration.ZERO, emptyList()))
-    }
+    fun appDetail_dark() = capture("app_detail_dark", dark = true) { BrowserDetail() }
 
     @Test
     fun historyDialog() = capture("history_dialog") {
@@ -77,10 +93,10 @@ class ScreenshotTests {
     }
 
     @Composable
-    private fun HomeFor(status: HomeStatus, todayUsage: TodayUsage = sampleUsage) {
+    private fun HomeFor(status: HomeStatus, dashboard: Dashboard = SampleUsage.dashboard()) {
         HomeScreen(
             status = status,
-            todayUsage = todayUsage,
+            dashboard = dashboard,
             historyLength = HistoryLength.FourWeeks,
             onTrackingChange = {},
             onAllowUsageAccess = {},
@@ -88,14 +104,17 @@ class ScreenshotTests {
         )
     }
 
-    private val sampleUsage = TodayUsage(
-        total = Duration.ofMinutes(197),
-        topApps = listOf(
-            AppTime("Browser", Duration.ofMinutes(74)),
-            AppTime("Messages", Duration.ofMinutes(48)),
-            AppTime("A very long app name that does not fit on one line", Duration.ofMinutes(31)),
-            AppTime("Camera", Duration.ofMinutes(12)),
-            AppTime("Clock", Duration.ofSeconds(40)),
-        ),
-    )
+    @Composable
+    private fun BrowserDetail() {
+        AppDetailScreen(
+            detail = buildAppDetail(
+                "browser",
+                SampleUsage.usageByDay,
+                SampleUsage.today,
+                SampleUsage.firstDayOfWeek,
+                SampleUsage.labels,
+            ),
+            onBack = {},
+        )
+    }
 }

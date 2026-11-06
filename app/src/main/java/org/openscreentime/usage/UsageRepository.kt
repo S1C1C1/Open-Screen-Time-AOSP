@@ -20,6 +20,9 @@ interface UsageRepository {
     /** Apps used on [day], most used first. */
     fun usageForDay(day: LocalDate): Flow<List<AppUsageTime>>
 
+    /** Apps used on each day from [from] to [to], inclusive, most used first. Days without use are left out. */
+    fun usageForDays(from: LocalDate, to: LocalDate): Flow<Map<LocalDate, List<AppUsageTime>>>
+
     /** Reads recent events from Android and saves the daily totals. */
     suspend fun sync()
 
@@ -45,6 +48,16 @@ class RoomUsageRepository(
     override fun usageForDay(day: LocalDate): Flow<List<AppUsageTime>> =
         dao.forDay(day.toEpochDay()).map { rows ->
             rows.map { AppUsageTime(it.packageName, Duration.ofMillis(it.foregroundMillis)) }
+        }
+
+    override fun usageForDays(from: LocalDate, to: LocalDate): Flow<Map<LocalDate, List<AppUsageTime>>> =
+        dao.forDays(from.toEpochDay(), to.toEpochDay()).map { rows ->
+            rows.groupBy { LocalDate.ofEpochDay(it.epochDay) }
+                .mapValues { (_, dayRows) ->
+                    dayRows
+                        .map { AppUsageTime(it.packageName, Duration.ofMillis(it.foregroundMillis)) }
+                        .sortedWith(compareByDescending<AppUsageTime> { it.time }.thenBy { it.packageName })
+                }
         }
 
     override suspend fun sync() {

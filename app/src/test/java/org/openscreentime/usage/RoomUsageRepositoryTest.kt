@@ -108,6 +108,23 @@ class RoomUsageRepositoryTest {
     }
 
     @Test
+    fun usageForDaysGroupsByDayWithinTheRange() = runBlocking {
+        dao.saveKeepingLarger(
+            listOf(
+                row(today, "mail", 10),
+                row(today, "chat", 30),
+                row(today.minusDays(2), "video", 60),
+                row(today.minusDays(9), "old", 5), // outside the range
+            ),
+        )
+        val result = repository.usageForDays(today.minusDays(6), today).first()
+
+        assertEquals(setOf(today, today.minusDays(2)), result.keys)
+        assertEquals(listOf("chat", "mail"), result.getValue(today).map { it.packageName })
+        assertEquals(Duration.ofMinutes(60), result.getValue(today.minusDays(2)).single().time)
+    }
+
+    @Test
     fun deleteOldHistoryKeepsExactlyTheChosenNumberOfDays() = runBlocking {
         dao.saveKeepingLarger(
             listOf(
