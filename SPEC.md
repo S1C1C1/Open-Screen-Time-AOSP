@@ -46,7 +46,9 @@ It is designed to ship as a **privileged system app** built into a ROM, with Gra
 ### 2. Per-app time limits
 
 - Set a daily time limit for any app, in 15-minute steps, up to 23h 45m.
-- Optionally use different limits on weekdays and weekends.
+- Optionally use different limits on weekdays and weekends. For now, the weekend is Saturday and Sunday; choosing other weekend days may come later.
+- A limit can be set for any app in the app drawer, including apps not used yet, from the app's page or from the App limits list.
+- Limits can be set before a PIN exists, so adults can use them as a nudge. The App limits screen then reminds the user to set a PIN. Once a PIN is set, adding, changing or removing a limit requires it.
 - Show a notification 5 minutes before a limit is reached. *(Phase 2: needs background usage monitoring.)*
 - When the limit is reached, the app is blocked (see **Limit behavior**).
 - Limits reset at midnight local time.

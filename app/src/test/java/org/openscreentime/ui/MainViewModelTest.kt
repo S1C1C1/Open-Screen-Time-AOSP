@@ -2,15 +2,19 @@ package org.openscreentime.ui
 
 import android.os.Looper
 import androidx.test.ext.junit.runners.AndroidJUnit4
+import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertFalse
 import org.junit.Assert.assertNull
 import org.junit.Assert.assertTrue
 import org.junit.Test
 import org.junit.runner.RunWith
 import org.openscreentime.data.AppSettings
 import org.openscreentime.data.HistoryLength
+import org.openscreentime.limits.AppLimit
 import org.openscreentime.pin.pin
+import org.openscreentime.usage.InstalledApp
 import org.openscreentime.pin.testPinManager
 import org.openscreentime.ui.pin.PinFlowKind
 import org.openscreentime.ui.pin.PinStep
@@ -36,6 +40,12 @@ class MainViewModelTest {
     private val clock = Clock.fixed(Instant.parse("2026-11-05T12:00:00Z"), zone)
 
     private val pinManager = testPinManager()
+    private val limits = FakeLimitRepository()
+    private var installed = listOf(
+        InstalledApp("chat", "Chat"),
+        InstalledApp("mail", "Mail"),
+        InstalledApp("video", "Video"),
+    )
 
     private fun newViewModel() = MainViewModel(
         settingsRepository = settings,
@@ -43,6 +53,8 @@ class MainViewModelTest {
         usageRepository = usage,
         appLabels = { pkg -> "Label of $pkg" },
         pinManager = pinManager,
+        limitRepository = limits,
+        installedApps = { installed },
         clock = clock,
         firstDayOfWeek = DayOfWeek.SUNDAY,
     )
@@ -383,5 +395,91 @@ class MainViewModelTest {
         viewModel.onAppHidden()
         assertNull(viewModel.pinFlow.ui.value)
         assertEquals(HomeStatus.Ready, viewModel.currentState().homeStatus)
+    }
+
+    // --- App limits ---
+
+    private val hour = Duration.ofHours(1)
+
+    @Test
+    fun withoutAPinLimitsSaveStraightAway() {
+        val viewModel = newViewModel()
+        var done = false
+        viewModel.saveLimit("video", AppLimit("video", hour)) { done = true }
+
+        assertEquals(1, viewModel.currentState().limitCount)
+        assertTrue(done)
+        assertNull(viewModel.pinFlow.ui.value)
+    }
+
+    @Test
+    fun withAPinSavingALimitAsksForItFirst() {
+        runBlocking { pinManager.setInitialPin(pin("4826")) }
+        val viewModel = newViewModel()
+        var done = false
+        viewModel.saveLimit("video", AppLimit("video", hour)) { done = true }
+        viewModel.currentState()
+
+        assertEquals(PinFlowKind.Verify, viewModel.pinFlow.ui.value!!.kind)
+        assertEquals(0, viewModel.currentState().limitCount)
+        assertFalse(done)
+
+        viewModel.enterPin("4826")
+        assertEquals(1, viewModel.currentState().limitCount)
+        assertTrue(done)
+    }
+
+    @Test
+    fun removingALimitAlsoNeedsThePin() {
+        runBlocking {
+            limits.save(AppLimit("video", hour))
+            pinManager.setInitialPin(pin("4826"))
+        }
+        val viewModel = newViewModel()
+        viewModel.saveLimit("video", null) {}
+        viewModel.currentState()
+        assertEquals(1, viewModel.currentState().limitCount)
+
+        viewModel.enterPin("4826")
+        assertEquals(0, viewModel.currentState().limitCount)
+    }
+
+    @Test
+    fun dashboardMarksAppsWithLimits() {
+        usage.usageByDay.value = mapOf(
+            today to listOf(AppUsageTime("video", hour), AppUsageTime("mail", hour)),
+        )
+        runBlocking { limits.save(AppLimit("video", Duration.ofHours(2))) }
+        val apps = newViewModel().currentState().dashboard!!.apps
+        assertEquals(mapOf("mail" to false, "video" to true), apps.associate { it.packageName to it.hasLimit })
+    }
+
+    @Test
+    fun appDetailShowsTheLimitAndTimeLeft() {
+        usage.usageByDay.value = mapOf(today to listOf(AppUsageTime("video", Duration.ofMinutes(40))))
+        runBlocking { limits.save(AppLimit("video", hour)) }
+        val viewModel = newViewModel()
+        var detail: org.openscreentime.ui.dashboard.AppDetail? = null
+        val job = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main.immediate).launch {
+            viewModel.appDetail("video").collect { detail = it }
+        }
+        shadowOf(Looper.getMainLooper()).idle()
+        assertEquals(hour, detail!!.limit!!.weekday)
+        assertEquals(Duration.ofMinutes(20), detail.timeLeftToday)
+        job.cancel()
+    }
+
+    @Test
+    fun limitedAppsAreListedByNameAndLeftOutOfThePicker() {
+        runBlocking {
+            limits.save(AppLimit("video", hour))
+            limits.save(AppLimit("chat", hour))
+        }
+        val viewModel = newViewModel()
+        viewModel.currentState()
+        assertEquals(listOf("Label of chat", "Label of video"), viewModel.limitedApps.value.map { it.label })
+
+        val available = runBlocking { viewModel.appsWithoutLimit().first() }
+        assertEquals(listOf("mail"), available.map { it.packageName })
     }
 }

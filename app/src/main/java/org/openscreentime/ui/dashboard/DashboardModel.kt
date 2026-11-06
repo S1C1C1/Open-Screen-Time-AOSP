@@ -1,5 +1,6 @@
 package org.openscreentime.ui.dashboard
 
+import org.openscreentime.limits.AppLimit
 import org.openscreentime.usage.AppLabels
 import org.openscreentime.usage.AppUsageTime
 import java.time.DayOfWeek
@@ -8,7 +9,12 @@ import java.time.LocalDate
 import java.time.temporal.TemporalAdjusters
 
 /** One app's time, with the name shown to the user. */
-data class AppTime(val packageName: String, val label: String, val time: Duration)
+data class AppTime(
+    val packageName: String,
+    val label: String,
+    val time: Duration,
+    val hasLimit: Boolean = false,
+)
 
 /** One bar in a week chart. */
 data class DayBar(
@@ -51,6 +57,7 @@ fun buildDashboard(
     selectedDay: LocalDate?,
     firstDayOfWeek: DayOfWeek,
     labels: AppLabels,
+    limitedPackages: Set<String> = emptySet(),
 ): Dashboard {
     val week = weekContaining(today, firstDayOfWeek)
     val shownDay = selectedDay?.takeIf { it in week && !it.isAfter(today) } ?: today
@@ -68,7 +75,9 @@ fun buildDashboard(
         selectedDay = shownDay,
         today = today,
         total = shownApps.total(),
-        apps = shownApps.map { AppTime(it.packageName, labels.labelFor(it.packageName), it.time) },
+        apps = shownApps.map {
+            AppTime(it.packageName, labels.labelFor(it.packageName), it.time, it.packageName in limitedPackages)
+        },
     )
 }
 
@@ -80,6 +89,9 @@ data class AppDetail(
     val week: List<DayBar>,
     /** Average per day over the days of this week so far, including today. */
     val dailyAverage: Duration,
+    val limit: AppLimit? = null,
+    /** Time left under today's limit, or null without a limit. */
+    val timeLeftToday: Duration? = null,
 )
 
 fun buildAppDetail(
@@ -88,6 +100,7 @@ fun buildAppDetail(
     today: LocalDate,
     firstDayOfWeek: DayOfWeek,
     labels: AppLabels,
+    limit: AppLimit? = null,
 ): AppDetail {
     fun timeOn(day: LocalDate): Duration =
         usageByDay[day]?.firstOrNull { it.packageName == packageName }?.time ?: Duration.ZERO
@@ -109,5 +122,7 @@ fun buildAppDetail(
         week = week,
         // daysSoFar always includes today, so this never divides by zero.
         dailyAverage = totalSoFar.dividedBy(daysSoFar.size.toLong()),
+        limit = limit,
+        timeLeftToday = limit?.timeLeft(today, timeOn(today)),
     )
 }

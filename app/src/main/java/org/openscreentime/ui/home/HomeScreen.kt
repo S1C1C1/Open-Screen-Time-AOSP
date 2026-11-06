@@ -5,6 +5,7 @@ import androidx.compose.ui.platform.LocalConfiguration
 import org.openscreentime.ui.components.AppIcon
 import org.openscreentime.ui.components.WeekBarChart
 import org.openscreentime.ui.dashboard.Dashboard
+import org.openscreentime.ui.limits.LimitBadge
 import org.openscreentime.ui.dashboard.buildDashboard
 import org.openscreentime.ui.format.formatDayWithDate
 import org.openscreentime.usage.AppUsageTime
@@ -38,6 +39,7 @@ import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalResources
 import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.res.pluralStringResource
 import androidx.compose.ui.res.stringResource
 import androidx.compose.ui.semantics.Role
 import androidx.compose.ui.text.style.TextOverflow
@@ -64,6 +66,8 @@ fun HomeScreen(
     onHistoryLengthChange: (HistoryLength) -> Unit,
     modifier: Modifier = Modifier,
     pinSet: Boolean = false,
+    limitCount: Int = 0,
+    onLimitsClick: () -> Unit = {},
     onSelectDay: (LocalDate) -> Unit = {},
     onAppClick: (String) -> Unit = {},
     onPinClick: () -> Unit = {},
@@ -92,6 +96,16 @@ fun HomeScreen(
         }
         SectionHeader(stringResource(R.string.dashboard_settings_header))
         SettingsCard {
+            SettingsRow(
+                title = stringResource(R.string.limits_title),
+                summary = if (limitCount == 0) {
+                    stringResource(R.string.limits_none)
+                } else {
+                    pluralStringResource(R.plurals.limits_count, limitCount, limitCount)
+                },
+                onClick = onLimitsClick,
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainer)
             TrackingSwitchRow(
                 checked = status != HomeStatus.TrackingOff,
                 onCheckedChange = onTrackingChange,
@@ -175,10 +189,16 @@ private fun AppListCard(dashboard: Dashboard, onAppClick: (String) -> Unit) {
                         Text(app.label, maxLines = 1, overflow = TextOverflow.Ellipsis)
                     },
                     trailingContent = {
-                        Text(
-                            text = formatDuration(app.time, resources),
-                            style = MaterialTheme.typography.bodyMedium,
-                        )
+                        Row(
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(6.dp),
+                        ) {
+                            if (app.hasLimit) LimitBadge()
+                            Text(
+                                text = formatDuration(app.time, resources),
+                                style = MaterialTheme.typography.bodyMedium,
+                            )
+                        }
                     },
                     colors = ListItemDefaults.colors(containerColor = MaterialTheme.colorScheme.surfaceBright),
                 )

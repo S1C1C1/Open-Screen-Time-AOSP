@@ -1,14 +1,17 @@
 package org.openscreentime.data
 
+import androidx.room.AutoMigration
 import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Database
 import androidx.room.Entity
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
+import androidx.room.PrimaryKey
 import androidx.room.Query
 import androidx.room.RoomDatabase
 import androidx.room.Transaction
+import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
 /** Time one app was used on one day. */
@@ -55,7 +58,42 @@ abstract class DailyUsageDao {
     abstract suspend fun deleteBefore(epochDay: Long): Int
 }
 
-@Database(entities = [DailyUsageEntity::class], version = 1, exportSchema = true)
+/** A daily limit for one app, in minutes. */
+@Entity(tableName = "app_limits")
+data class AppLimitEntity(
+    @PrimaryKey @ColumnInfo(name = "package_name") val packageName: String,
+    @ColumnInfo(name = "weekday_minutes") val weekdayMinutes: Int,
+    /** Null when the weekday limit applies every day. */
+    @ColumnInfo(name = "weekend_minutes") val weekendMinutes: Int?,
+)
+
+@Dao
+interface AppLimitDao {
+    @Query("SELECT * FROM app_limits ORDER BY package_name")
+    fun all(): Flow<List<AppLimitEntity>>
+
+    @Query("SELECT * FROM app_limits WHERE package_name = :packageName")
+    fun forApp(packageName: String): Flow<AppLimitEntity?>
+
+    @Upsert
+    suspend fun upsert(limit: AppLimitEntity)
+
+    @Query("DELETE FROM app_limits WHERE package_name = :packageName")
+    suspend fun delete(packageName: String)
+}
+
+/**
+ * The app's database. When its layout changes, raise [version] and add a
+ * migration, so saved usage history is kept when the app is updated.
+ * Version 2 added app limits.
+ */
+@Database(
+    entities = [DailyUsageEntity::class, AppLimitEntity::class],
+    version = 2,
+    exportSchema = true,
+    autoMigrations = [AutoMigration(from = 1, to = 2)],
+)
 abstract class UsageDatabase : RoomDatabase() {
     abstract fun dailyUsageDao(): DailyUsageDao
+    abstract fun appLimitDao(): AppLimitDao
 }
