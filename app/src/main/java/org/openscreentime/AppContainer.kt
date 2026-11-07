@@ -61,6 +61,7 @@ import org.openscreentime.usage.RoomUsageRepository
 import org.openscreentime.usage.SystemUsageEventSource
 import org.openscreentime.usage.UsageAccessChecker
 import org.openscreentime.usage.UsageRepository
+import org.openscreentime.usage.allHomeScreenPackages
 import org.openscreentime.usage.homeScreenPackages
 
 /** Creates the app's shared objects once, so every screen and job uses the same ones. */
@@ -111,6 +112,7 @@ class AppContainer(context: Context) {
         ownPackage = appContext.packageName,
         homeScreenPackages = { homeScreenPackages(appContext.packageManager) },
         assistiveApps = AndroidAssistiveApps(appContext),
+        allHomeScreenPackages = { allHomeScreenPackages(appContext.packageManager) },
     )
 
     /** Pauses apps as the phone starts, before the saved rules can be read. */

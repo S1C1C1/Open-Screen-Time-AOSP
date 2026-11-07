@@ -36,7 +36,7 @@ It is designed to ship as a **privileged system app** built into a ROM, with Gra
 
 - Total screen time for today, with a daily bar chart for the current week. The week is the calendar week, starting on the first day used by the phone's region (for example Sunday in the US, Monday in most of Europe).
 - Tapping a day in the chart shows that day's total and app list. Coming back to the app returns to today.
-- Time on the home screen (launcher) is not counted, matching Digital Wellbeing and iOS Screen Time. Time in the screen time app itself is counted.
+- Time on the home screen (launcher) in use is not counted, matching Digital Wellbeing and iOS Screen Time. Other installed apps that can act as a home screen are counted like any other app. Time in the screen time app itself is counted.
 - An app counts as used while one of its screens is in the foreground. Turning the screen off or locking the phone ends use. Two apps in split screen are both counted. Use crossing midnight is split between the two days.
 - A list of apps sorted by usage, showing time used today.
 - Tapping an app shows its daily usage over the week, its daily average for the week so far (including today), and its current limit, if any.
@@ -106,7 +106,7 @@ It is designed to ship as a **privileged system app** built into a ROM, with Gra
 - Editable, but changes require the PIN once a PIN is set.
 - Emergency calling must always work and cannot be removed from the list.
 - "Phone" means whichever app is the default phone app right now, so a newly chosen default is allowed automatically. "Settings" and emergency calling are likewise looked up on the phone each time. Only system apps are accepted for the emergency dialer and Settings, so an installed app can't pose as one.
-- The screen time app itself and the home screen are always allowed but not listed, so the PIN can always be entered.
+- The screen time app itself and the home screen in use are always allowed but not listed, so the PIN can always be entered. Other apps that can act as a home screen can be blocked, so installing a second launcher-style app isn't a way around limits. Until a default home screen has been chosen, every home screen app is treated as the one in use.
 - If an always allowed app also has a limit, the limit editor notes that the limit won't block it.
 - As with limits and downtime, the list can be changed before a PIN exists, with a reminder to set one.
 
@@ -240,7 +240,7 @@ These are always enforced once a PIN is set, regardless of the options above:
 
 ## Development phases
 
-1. **App foundation (no special privileges).** Usage dashboard, limits and downtime screens, PIN setup, and block screens. Built and tested as a regular app. GitHub Actions produces an APK for each change. A regular app can't block other apps, so block screens are only shown through a **Preview block screen** button (on each app's page and the Downtime screen) in this phase. The rules that decide what to block are built and tested here. Blocking goes through an `AppBlocker` interface; phase 1 uses a version that does nothing, and phase 2 adds real ones for system app mode and device-owner mode.
+1. **App foundation (no special privileges).** Usage dashboard, limits and downtime screens, PIN setup, and block screens. Built and tested as a regular app. GitHub Actions produces an APK for each change. A regular app can't block other apps, so block screens are only shown through a **Preview block screen** button (on each app's page and the Downtime screen) in this phase. A preview's buttons only close it; they never give extra time or use up "one more minute". The rules that decide what to block are built and tested here. Blocking goes through an `AppBlocker` interface; phase 1 uses a version that does nothing, and phase 2 adds real ones for system app mode and device-owner mode.
 2. **Enforcement.** App suspension, restrictions, and self-protection, tested in device-owner mode on a test phone. Also the 5-minute warning notifications before a limit or downtime, which need background usage monitoring.
 3. **System app integration.** Privileged-permission files, build integration for GrapheneOS, and Settings integration. Tested in a full GrapheneOS build.
 4. **Polish and proposal.** Documentation, a test report, and a proposal to the GrapheneOS team.

@@ -48,6 +48,8 @@ class AlwaysAllowedPolicy(
     private val ownPackage: String,
     private val homeScreenPackages: () -> Set<String>,
     private val assistiveApps: AssistiveApps = AssistiveApps.None,
+    /** Every home screen app, not only the one in use; protected while the phone starts. */
+    private val allHomeScreenPackages: () -> Set<String> = homeScreenPackages,
 ) {
     /** The list shown to the user, in a fixed order: Phone, Emergency, Settings, then added apps. */
     fun listed(config: AlwaysAllowedConfig): List<AllowedApp> {
@@ -80,7 +82,11 @@ class AlwaysAllowedPolicy(
      * apps (the user's own list can't be read before the first unlock) plus
      * every switched-on keyboard and accessibility service.
      */
-    fun protectedAtStartup(): Set<String> = snapshot(AlwaysAllowedConfig()) + assistiveApps.protectedAtStartup()
+    fun protectedAtStartup(): Set<String> =
+        snapshot(AlwaysAllowedConfig()) + assistiveApps.protectedAtStartup() +
+            // Before the first unlock Android may report a temporary system home
+            // screen as the one in use, so every home screen app is protected.
+            allHomeScreenPackages()
 
     /** The config after removing [app]. Emergency calling can't be removed, so it is ignored. */
     fun remove(app: AllowedApp, config: AlwaysAllowedConfig): AlwaysAllowedConfig = when (app.role) {
