@@ -46,6 +46,7 @@ import org.openscreentime.restrictions.RestrictionsState
 import org.openscreentime.ui.restrictions.RestrictionsUi
 import org.openscreentime.blocking.BlockDecision
 import org.openscreentime.blocking.BlockReason
+import org.openscreentime.blocking.BlockKeys
 import org.openscreentime.blocking.BlockRules
 import org.openscreentime.blocking.LimitMode
 import org.openscreentime.blocking.OverrideRepository
@@ -477,7 +478,19 @@ class MainViewModel(
     init {
         // Self-protection follows the PIN: on as soon as one is set (device-owner mode).
         viewModelScope.launch {
-            pinManager.isPinSet.collect { pinSet -> selfProtection?.update(pinSet) }
+            var hadPin: Boolean? = null
+            pinManager.isPinSet.collect { pinSet ->
+                selfProtection?.update(pinSet)
+                // Setting a PIN also switches on the date and time restriction:
+                // otherwise moving the clock forward a day would reset today's
+                // limits and stretch extra time. It can be switched off again
+                // with the PIN on the Restrictions screen.
+                if (hadPin == false && pinSet) {
+                    restrictionsRepository?.setEnabled(Restriction.DateTime, true)
+                    applyRestrictions()
+                }
+                hadPin = pinSet
+            }
         }
     }
 
@@ -526,15 +539,22 @@ class MainViewModel(
      * particular app) blocked for [reason], using the current mode and
      * what's been used today.
      */
-    fun previewBlockScreen(packageName: String?, reason: BlockReason, ruleName: String? = null) =
-        openBlockScreen(packageName, reason, real = false, ruleName = ruleName)
+    fun previewBlockScreen(packageName: String?, reason: BlockReason, ruleName: String? = null, overrideKey: String? = null) =
+        openBlockScreen(packageName, reason, real = false, ruleName = ruleName, overrideKey = overrideKey)
 
     /**
      * Opens the block screen for [packageName] blocked for [reason]. A real
      * one (device-owner mode) has no preview banner; its extra time unpauses
      * the app straight away.
      */
-    fun openBlockScreen(packageName: String?, reason: BlockReason, real: Boolean, ruleName: String? = null) {
+    fun openBlockScreen(
+        packageName: String?,
+        reason: BlockReason,
+        real: Boolean,
+        ruleName: String? = null,
+        /** Which block extra time lifts; worked out from [reason] and [ruleName] when not given. */
+        overrideKey: String? = null,
+    ) {
         viewModelScope.launch {
             val instant = clock.instant()
             now.value = instant
@@ -543,11 +563,13 @@ class MainViewModel(
             val pkg = packageName.orEmpty()
             val override = if (packageName == null) AppOverride() else overrideRepository.overrideFor(pkg).first()
             val mode = settingsRepository.settings.first().limitMode
+            val schedule = if (reason == BlockReason.Scheduled) scheduleFor(overrideKey, ruleName) else null
             val until = when (reason) {
                 BlockReason.LimitReached -> day.plusDays(1).atStartOfDay(zone)
                 BlockReason.Downtime -> downtimeEnd(instant)
-                BlockReason.Scheduled -> scheduleEnd(ruleName, instant) ?: day.plusDays(1).atStartOfDay(zone)
+                BlockReason.Scheduled -> schedule?.let { scheduleEnd(it, instant) } ?: day.plusDays(1).atStartOfDay(zone)
             }
+            val key = overrideKey ?: schedule?.let { BlockKeys.schedule(it.id) } ?: BlockKeys.forReason(reason)
             blockScreen.value = BlockScreenUi(
                 packageName = pkg,
                 label = packageName?.let(appLabels::labelFor),
@@ -557,13 +579,18 @@ class MainViewModel(
                 graceAvailable = mode == LimitMode.Grace && override.graceUsedOn != day,
                 isPreview = !real,
                 ruleName = ruleName.takeIf { reason != BlockReason.Downtime },
+                overrideKey = key,
             )
         }
     }
 
-    /** When the schedule called [name] ends: now if it's on, otherwise at the end of its next run (for previews). */
-    private fun scheduleEnd(name: String?, instant: java.time.Instant): java.time.ZonedDateTime? {
-        val schedule = schedules.value.firstOrNull { it.name == name } ?: return null
+    /** The schedule a block screen is for: by its block key, or else by name. */
+    private fun scheduleFor(overrideKey: String?, name: String?): AppSchedule? =
+        schedules.value.firstOrNull { overrideKey != null && BlockKeys.schedule(it.id) == overrideKey }
+            ?: schedules.value.firstOrNull { it.name == name }
+
+    /** When [schedule] ends: now if it's on, otherwise at the end of its next run (for previews). */
+    private fun scheduleEnd(schedule: AppSchedule, instant: java.time.Instant): java.time.ZonedDateTime? {
         val zone = clock.zone
         return when (val status = schedule.copy(enabled = true).status(instant, zone)) {
             is DowntimeStatus.ActiveUntil -> status.end
@@ -594,12 +621,12 @@ class MainViewModel(
     /** Grace mode: one more minute, once per app per day. */
     fun blockOneMoreMinute() = blockAction { ui, instant ->
         overrideRepository.markGraceUsed(ui.packageName, instant.atZone(clock.zone).toLocalDate())
-        overrideRepository.allowUntil(ui.packageName, instant + BlockRules.ONE_MORE_MINUTE)
+        overrideRepository.allowUntil(ui.packageName, ui.overrideKey, instant + BlockRules.ONE_MORE_MINUTE)
     }
 
     /** Reminder mode: ignore for 15 minutes. */
     fun blockIgnore() = blockAction { ui, instant ->
-        overrideRepository.allowUntil(ui.packageName, instant + BlockRules.REMINDER_SNOOZE)
+        overrideRepository.allowUntil(ui.packageName, ui.overrideKey, instant + BlockRules.REMINDER_SNOOZE)
     }
 
     /** Asks for the PIN, then lets the user choose how long to unlock for. Without a PIN, goes straight to the choice. */
@@ -612,7 +639,7 @@ class MainViewModel(
 
     fun blockUnlock(duration: UnlockDuration) = blockAction { ui, instant ->
         val blocked = BlockDecision.Blocked(ui.reason, ui.blockedUntil, ui.graceAvailable)
-        overrideRepository.allowUntil(ui.packageName, BlockRules.unlockEnd(instant, duration, blocked))
+        overrideRepository.allowUntil(ui.packageName, ui.overrideKey, BlockRules.unlockEnd(instant, duration, blocked))
     }
 
     /** Runs [action] for the open block screen, then closes it and refreshes "right now" statuses. */

@@ -58,7 +58,7 @@ class EnforcementPlannerTest {
     fun extraTimeUnpauses() {
         val result = plan(
             used = mapOf("video" to minutes(70)),
-            overrides = mapOf("video" to AppOverride(allowedUntil = at("15:10"))),
+            overrides = mapOf("video" to AppOverride(allowedUntil = mapOf(BlockKeys.LIMIT to at("15:10")))),
         )
         assertEquals(emptySet<String>(), result.pause)
     }
@@ -98,7 +98,7 @@ class EnforcementPlannerTest {
         val result = plan(
             now = at("15:09:50"),
             used = mapOf("video" to minutes(70)),
-            overrides = mapOf("video" to AppOverride(allowedUntil = at("15:10"))),
+            overrides = mapOf("video" to AppOverride(allowedUntil = mapOf(BlockKeys.LIMIT to at("15:10")))),
         )
         assertEquals(Duration.ofSeconds(10), result.checkAgainIn)
     }
@@ -159,7 +159,7 @@ class EnforcementPlannerTest {
     fun aSchedulePausesItsAppsExceptAlwaysAllowedOnes() {
         val result = planWithSchedule(at("10:00"), foreground = "video")
         assertEquals(setOf("video"), result.pause)
-        assertEquals(BlockRequest("video", BlockReason.Scheduled, "Work"), result.showBlockScreen)
+        assertEquals(BlockRequest("video", BlockReason.Scheduled, "Work", BlockKeys.schedule(1)), result.showBlockScreen)
         assertEquals(emptySet<String>(), planWithSchedule(at("18:00")).pause)
     }
 

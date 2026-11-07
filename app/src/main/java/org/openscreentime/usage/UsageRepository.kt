@@ -26,7 +26,7 @@ interface UsageRepository {
     /** Reads recent events from Android and saves the daily totals. */
     suspend fun sync()
 
-    /** Like [sync], but only today: quick enough to run every few seconds while the phone is in use. */
+    /** Like [sync], but only today and yesterday: quick enough to run every few seconds while the phone is in use. */
     suspend fun syncToday()
 
     /** Deletes days older than [length] allows. */
@@ -67,7 +67,10 @@ class RoomUsageRepository(
     // forgotten can't lose time, because saving keeps the larger value.
     override suspend fun sync() = syncDays(SYNC_DAYS)
 
-    override suspend fun syncToday() = syncDays(1)
+    // Starts from yesterday, so an app opened before midnight and still open
+    // counts towards today from midnight on. Starting at midnight would miss
+    // it until it was closed, letting someone stay in an app past their limit.
+    override suspend fun syncToday() = syncDays(2)
 
     private suspend fun syncDays(days: Int) {
         val zone = zone()

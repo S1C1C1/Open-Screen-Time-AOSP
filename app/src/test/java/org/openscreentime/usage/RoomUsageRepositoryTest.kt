@@ -78,9 +78,9 @@ class RoomUsageRepositoryTest {
     }
 
     @Test
-    fun syncTodayOnlyReadsToday() = runBlocking {
+    fun syncTodayReadsFromYesterday() = runBlocking {
         repository.syncToday()
-        assertEquals(today.atStartOfDay(zone).toInstant() to now, requestedWindow)
+        assertEquals(today.minusDays(1).atStartOfDay(zone).toInstant() to now, requestedWindow)
     }
 
     @Test
@@ -100,6 +100,15 @@ class RoomUsageRepositoryTest {
             listOf(AppUsageTime("mail", Duration.ofMinutes(60))),
             repository.usageForDay(lastWeek).first(),
         )
+    }
+
+    @Test
+    fun appOpenedBeforeMidnightAndStillOpenCountsTowardsToday() = runBlocking {
+        // Opened at 23:50 and never left: today's time runs from midnight until now (18:00).
+        events = listOf(UsageEvent.AppResumed(at(today.minusDays(1), 23, 50), "video", "Main"))
+        repository.syncToday()
+        assertEquals(Duration.ofHours(18), repository.usageForDay(today).first().single().time)
+        assertEquals(Duration.ofMinutes(10), repository.usageForDay(today.minusDays(1)).first().single().time)
     }
 
     @Test

@@ -58,7 +58,7 @@ enum class SchedulePreset(val days: Set<DayOfWeek>, val window: DowntimeWindow) 
 }
 
 /** A schedule that's on right now, for one app. */
-data class ActiveSchedule(val name: String, val end: java.time.ZonedDateTime)
+data class ActiveSchedule(val name: String, val end: java.time.ZonedDateTime, val id: Long = 0)
 
 object ScheduleRules {
     const val MAX_NAME_LENGTH = 40
@@ -76,6 +76,6 @@ object ScheduleRules {
     ): List<ActiveSchedule> = schedules.mapNotNull { schedule ->
         if (packageName !in schedule.blockedPackages(groups)) return@mapNotNull null
         val status = schedule.status(now, zone) as? DowntimeStatus.ActiveUntil ?: return@mapNotNull null
-        ActiveSchedule(schedule.name, status.end)
+        ActiveSchedule(schedule.name, status.end, schedule.id)
     }
 }

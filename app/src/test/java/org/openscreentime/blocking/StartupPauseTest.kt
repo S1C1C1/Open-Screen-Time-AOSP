@@ -2,7 +2,6 @@ package org.openscreentime.blocking
 
 import org.junit.Assert.assertEquals
 import org.junit.Test
-import org.openscreentime.allowed.AlwaysAllowedConfig
 import org.openscreentime.allowed.AlwaysAllowedPolicy
 import org.openscreentime.allowed.FakeSystemApps
 
@@ -13,13 +12,13 @@ class StartupPauseTest {
         systemApps = FakeSystemApps(phone = "dialer", emergency = "emergency", settings = "settings"),
         ownPackage = "org.openscreentime",
         homeScreenPackages = { setOf("launcher") },
-        assistiveApps = { setOf("keyboard", "reader") },
+        assistiveApps = org.openscreentime.allowed.FakeAssistiveApps(always = setOf("keyboard"), atStartup = setOf("keyboard", "reader")),
     )
 
     private fun pause(deviceOwner: Boolean) = StartupPause(
         isDeviceOwner = { deviceOwner },
         launchablePackages = { launchable },
-        isProtected = { policy.isAlwaysAllowed(it, AlwaysAllowedConfig()) },
+        protectedPackages = { policy.protectedAtStartup() },
     )
 
     @Test

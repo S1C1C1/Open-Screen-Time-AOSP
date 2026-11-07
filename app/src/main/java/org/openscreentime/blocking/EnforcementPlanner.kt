@@ -12,7 +12,12 @@ import java.time.Instant
 import java.time.ZoneId
 
 /** An app to show the block screen for, because it's open but shouldn't be. */
-data class BlockRequest(val packageName: String, val reason: BlockReason, val ruleName: String? = null)
+data class BlockRequest(
+    val packageName: String,
+    val reason: BlockReason,
+    val ruleName: String? = null,
+    val overrideKey: String = BlockKeys.forReason(reason),
+)
 
 /** What enforcement should do right now. */
 data class EnforcementPlan(
@@ -76,7 +81,7 @@ object EnforcementPlanner {
         val pause = if (mode == LimitMode.Reminder) emptySet() else blocked.keys
         val show = foregroundApp
             ?.let { blocked[it] as? BlockDecision.Blocked }
-            ?.let { BlockRequest(foregroundApp, it.reason, it.ruleName) }
+            ?.let { BlockRequest(foregroundApp, it.reason, it.ruleName, it.overrideKey) }
 
         return EnforcementPlan(pause, show, nextCheck(now, zone, apps, usageToday, limits, groups, schedules, downtime, decisions))
     }

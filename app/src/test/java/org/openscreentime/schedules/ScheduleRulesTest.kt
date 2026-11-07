@@ -77,7 +77,7 @@ class ScheduleRulesTest {
     fun activeSchedulesForAnApp() {
         val schedules = listOf(work, bedtime)
         assertEquals(
-            listOf(ActiveSchedule("Work", thursday.atTime(17, 0).atZone(zone))),
+            listOf(ActiveSchedule("Work", thursday.atTime(17, 0).atZone(zone), id = 1)),
             ScheduleRules.activeFor("photos", schedules, listOf(social), at("10:00"), zone),
         )
         assertTrue(ScheduleRules.activeFor("maps", schedules, listOf(social), at("10:00"), zone).isEmpty())

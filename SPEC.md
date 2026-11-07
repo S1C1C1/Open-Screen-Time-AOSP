@@ -127,6 +127,7 @@ When the PIN is entered on the block screen, the user can choose to unlock for 1
 - "One more minute" (Grace) is counted per app per day and resets at midnight.
 - When both apply, downtime is shown rather than the limit. Always allowed apps are never blocked.
 - Extra time (PIN unlock, one more minute, ignored reminder) uses the phone's clock; the date and time restriction in phase 2 stops it being stretched by changing the clock.
+- Extra time only lifts the block it was given for: the daily limit, downtime, or one particular schedule. For example, unlocking an app for the rest of the day after its limit doesn't let it through downtime or a schedule later that day. If several blocks apply at once, the app opens only when each of them has been lifted.
 - If no PIN is set, "Enter PIN for more time" goes straight to the choice of how long, since nothing is locked yet.
 
 ### 6. Restrictions
@@ -139,6 +140,8 @@ When enabled, each of these requires the PIN to change or use:
 - **Changing the date, time, or time zone.**
 
 Each restriction can be turned on or off individually.
+
+- Setting a PIN switches on **Changing the date, time, or time zone** automatically, because moving the clock forward a day would otherwise reset today's limits. It can be switched off again with the PIN.
 
 - Turning a restriction on never needs the PIN. Turning it off, or **Allow for 15 minutes**, needs the PIN once one is set. A lift ends after 15 minutes or at the next restart, whichever comes first, and is timed so changing the clock can't stretch it.
 - While **App installs and uninstalls** is on, app updates also wait, and installing test builds with adb needs it allowed.
@@ -194,7 +197,8 @@ These are always enforced once a PIN is set, regardless of the options above:
 - Removal: **Remove device owner** in the app (PIN required) gives up device-owner control so the app can be uninstalled. Factory reset also removes it.
 - Background tracking runs as a foreground service with a quiet, low-priority "Screen time is on" notification, which Android requires for a service that runs continuously. It checks today's usage every 30 seconds while the screen is on, does nothing while the screen is off, and stops itself when there are no limits and downtime is off. It starts when the app is opened, after a restart and after an update.
 - **After a restart (device-owner mode, decided: "pause everything at startup").** Android keeps paused apps paused through a restart, but the app's saved rules stay locked until the first unlock, so a block that should have started while the phone was off would be late. So, as the phone starts (before the first unlock), every app is paused except phone, emergency calling, Settings, the home screen, this app, and the keyboards and accessibility services that are switched on. After the unlock the background service reads the rules and unpauses what's allowed, within a few seconds. Nothing is saved in storage that can be read before the first unlock, in line with GrapheneOS keeping data locked until then. The cost is that all other apps are briefly paused after every restart, even with no rules. In system app mode (phase 3) this may be handled by the system instead.
-- Keyboards and accessibility services that are switched on are never paused, by any rule, so no one is locked out of typing their password or using their phone.
+- The keyboard in use, and switched-on accessibility services that Android marks as accessibility tools (screen readers, switch access and similar), are never paused by any rule, so no one is locked out of typing their password or using their phone. An ordinary app that merely switches on an accessibility service can still be blocked, so that can't be used to get out of a limit. While the phone starts, every switched-on keyboard and accessibility service is protected.
+- Today's usage includes an app that was opened before midnight and is still open, counted from midnight.
 - Device-owner mode can't lock usage access on. If usage access is turned off, the app fails safe: every app except always allowed apps is blocked until it is turned back on.
 - Safe mode is blocked while a PIN is set, because safe mode would switch off a device-owner app. Factory reset is never blocked.
 - Lifting a restriction with the PIN lasts 15 minutes, then the restriction switches back on by itself.

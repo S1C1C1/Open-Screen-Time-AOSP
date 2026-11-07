@@ -54,6 +54,8 @@ data class BlockScreenUi(
     val isPreview: Boolean = true,
     /** Set when the app is blocked by a group's shared limit rather than its own. */
     val ruleName: String? = null,
+    /** Which block extra time from this screen lifts (see BlockKeys). */
+    val overrideKey: String = org.openscreentime.blocking.BlockKeys.forReason(reason),
 )
 
 class BlockActions(

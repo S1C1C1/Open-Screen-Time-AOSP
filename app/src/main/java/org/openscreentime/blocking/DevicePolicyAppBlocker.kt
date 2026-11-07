@@ -9,6 +9,8 @@ import androidx.datastore.preferences.core.stringSetPreferencesKey
 import androidx.datastore.preferences.preferencesDataStore
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.flow.map
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import org.openscreentime.R
 import org.openscreentime.admin.DeviceOwner
 import org.openscreentime.admin.EnforcementMode
@@ -30,13 +32,20 @@ class DevicePolicyAppBlocker(
     private val policy = context.getSystemService(DevicePolicyManager::class.java)
     private val admin = ScreenTimeAdmin.component(context)
 
+    /**
+     * One change at a time. Without this, handing over the apps paused at
+     * startup could happen in the middle of a normal check and be
+     * overwritten, leaving those apps paused until the next restart.
+     */
+    private val mutex = Mutex()
+
     suspend fun pausedApps(): Set<String> = dataStore.data.map { it[PAUSED] ?: emptySet() }.first()
 
-    override suspend fun setBlockedApps(packages: Set<String>) {
+    override suspend fun setBlockedApps(packages: Set<String>): Unit = mutex.withLock {
         val before = pausedApps()
         val toPause = packages - before
         val toUnpause = before - packages
-        if (toPause.isEmpty() && toUnpause.isEmpty()) return
+        if (toPause.isEmpty() && toUnpause.isEmpty()) return@withLock
 
         var failed = emptySet<String>()
         if (toPause.isNotEmpty()) {
@@ -66,7 +75,7 @@ class DevicePolicyAppBlocker(
      */
     suspend fun handOver(packages: Set<String>) {
         if (packages.isEmpty()) return
-        dataStore.edit { it[PAUSED] = (it[PAUSED] ?: emptySet()) + packages }
+        mutex.withLock { dataStore.edit { it[PAUSED] = (it[PAUSED] ?: emptySet()) + packages } }
     }
 
     private companion object {

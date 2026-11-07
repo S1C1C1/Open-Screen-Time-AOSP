@@ -94,7 +94,7 @@ class BlockRulesTest {
     @Test
     fun extraTimeAllowsUntilItEnds() {
         val until = at("15:15")
-        val override = AppOverride(allowedUntil = until)
+        val override = AppOverride(allowedUntil = mapOf(BlockKeys.LIMIT to until))
         assertEquals(BlockDecision.AllowedUntil(until), decide(now = at("15:00"), used = minutes(60), override = override))
         assertEquals(BlockDecision.AllowedUntil(until), decide(now = at("15:14"), used = minutes(60), override = override))
         assertTrue(decide(now = at("15:15"), used = minutes(60), override = override) is BlockDecision.Blocked)
@@ -102,7 +102,7 @@ class BlockRulesTest {
 
     @Test
     fun oldExtraTimeDoesNothingWhenNotBlocked() {
-        val override = AppOverride(allowedUntil = at("15:15"))
+        val override = AppOverride(allowedUntil = mapOf(BlockKeys.LIMIT to at("15:15")))
         assertEquals(BlockDecision.Allowed, decide(now = at("15:00"), used = minutes(10), override = override))
     }
 
@@ -201,7 +201,7 @@ class BlockRulesTest {
     @Test
     fun anActiveScheduleBlocksUntilItEndsAndNamesIt() {
         assertEquals(
-            BlockDecision.Blocked(BlockReason.Scheduled, workEnd, graceAvailable = false, ruleName = "Work"),
+            BlockDecision.Blocked(BlockReason.Scheduled, workEnd, graceAvailable = false, ruleName = "Work", overrideKey = BlockKeys.schedule(0)),
             decideWithSchedule(),
         )
     }
@@ -210,7 +210,7 @@ class BlockRulesTest {
     fun withSeveralSchedulesTheAppStaysBlockedUntilTheLastEnds() {
         val later = thursday.atTime(19, 0).atZone(zone)
         val result = decideWithSchedule(listOf(ActiveSchedule("Work", workEnd), ActiveSchedule("Homework", later)))
-        assertEquals(BlockDecision.Blocked(BlockReason.Scheduled, later, graceAvailable = false, ruleName = "Homework"), result)
+        assertEquals(BlockDecision.Blocked(BlockReason.Scheduled, later, graceAvailable = false, ruleName = "Homework", overrideKey = BlockKeys.schedule(0)), result)
     }
 
     @Test
@@ -227,5 +227,52 @@ class BlockRulesTest {
     @Test
     fun alwaysAllowedAppIsNotBlockedByASchedule() {
         assertEquals(BlockDecision.Allowed, decideWithSchedule(alwaysAllowed = true))
+    }
+
+    // --- Extra time lifts only the block it was given for ---
+
+    private fun decideAll(
+        override: AppOverride,
+        now: Instant = at("22:00"),
+        schedules: List<ActiveSchedule> = emptyList(),
+        used: Duration = minutes(90),
+    ) = BlockRules.decide(now, zone, used, hourLimit, nightDowntime, false, override, LimitMode.Strict, schedules = schedules)
+
+    @Test
+    fun extraTimeForALimitDoesNotLiftDowntime() {
+        // Unlocked for the rest of the day after the limit; downtime starts at 21:00.
+        val override = AppOverride(allowedUntil = mapOf(BlockKeys.LIMIT to midnight.toInstant()))
+        val result = decideAll(override) as BlockDecision.Blocked
+        assertEquals(BlockReason.Downtime, result.reason)
+        // Before downtime, the limit unlock works as before.
+        assertEquals(BlockDecision.AllowedUntil(midnight.toInstant()), decideAll(override, now = at("20:00")))
+    }
+
+    @Test
+    fun extraTimeForOneScheduleDoesNotLiftAnother() {
+        val endA = thursday.atTime(17, 0).atZone(zone)
+        val endB = thursday.atTime(18, 0).atZone(zone)
+        val schedules = listOf(ActiveSchedule("Work", endA, id = 1), ActiveSchedule("Study", endB, id = 2))
+        val override = AppOverride(allowedUntil = mapOf(BlockKeys.schedule(2) to at("16:00")))
+        val result = decideAll(override, now = at("15:00"), schedules = schedules, used = Duration.ZERO) as BlockDecision.Blocked
+        assertEquals("Work", result.ruleName)
+        assertEquals(BlockKeys.schedule(1), result.overrideKey)
+    }
+
+    @Test
+    fun whenEveryBlockIsLiftedTheAppIsAllowedUntilTheFirstLiftEnds() {
+        val schedules = listOf(ActiveSchedule("Work", thursday.atTime(17, 0).atZone(zone), id = 1))
+        val override = AppOverride(
+            allowedUntil = mapOf(BlockKeys.schedule(1) to at("15:30"), BlockKeys.LIMIT to at("16:00")),
+        )
+        assertEquals(BlockDecision.AllowedUntil(at("15:30")), decideAll(override, now = at("15:00"), schedules = schedules))
+        // At 15:30 the schedule unlock ends, so the schedule blocks again.
+        assertEquals(BlockReason.Scheduled, (decideAll(override, now = at("15:30"), schedules = schedules) as BlockDecision.Blocked).reason)
+    }
+
+    @Test
+    fun oldExtraTimeWithoutABlockKeyStillLiftsEverything() {
+        val override = AppOverride(allowedUntil = mapOf(BlockKeys.ANY to midnight.toInstant()))
+        assertEquals(BlockDecision.AllowedUntil(midnight.toInstant()), decideAll(override))
     }
 }

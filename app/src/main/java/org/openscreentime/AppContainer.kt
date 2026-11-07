@@ -11,7 +11,6 @@ import org.openscreentime.admin.DeviceOwner
 import org.openscreentime.admin.DevicePolicyProtectionActions
 import org.openscreentime.admin.SelfProtection
 import org.openscreentime.admin.EnforcementMode
-import org.openscreentime.allowed.AlwaysAllowedConfig
 import org.openscreentime.allowed.AlwaysAllowedPolicy
 import org.openscreentime.allowed.AndroidAssistiveApps
 import org.openscreentime.blocking.StartupPause
@@ -118,7 +117,7 @@ class AppContainer(context: Context) {
     val startupPause = StartupPause(
         isDeviceOwner = { deviceOwner.mode() == EnforcementMode.DeviceOwner },
         launchablePackages = { allLaunchablePackages(appContext.packageManager) },
-        isProtected = { pkg -> alwaysAllowedPolicy.isAlwaysAllowed(pkg, AlwaysAllowedConfig()) },
+        protectedPackages = { alwaysAllowedPolicy.protectedAtStartup() },
     )
 
     /** The device-owner pauser itself, for the restart steps that only apply in that mode. */

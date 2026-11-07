@@ -7,32 +7,62 @@ import android.view.accessibility.AccessibilityManager
 import android.view.inputmethod.InputMethodManager
 
 /**
- * Keyboards and accessibility services that are switched on. These are
- * never paused: pausing the keyboard could stop someone typing their
- * password on the lock screen, and pausing a screen reader could leave
- * someone unable to use their phone at all.
+ * Keyboards and accessibility services that must keep working, so no one
+ * is locked out of typing their password or using their phone.
  */
-fun interface AssistiveApps {
-    fun packages(): Set<String>
+interface AssistiveApps {
+    /**
+     * Never paused by any rule: the keyboard in use, and switched-on
+     * accessibility services that Android marks as accessibility tools
+     * (screen readers, switch access and the like). Ordinary apps that
+     * merely switch on an accessibility service aren't included, so that
+     * can't be used to get out of a limit.
+     */
+    fun alwaysProtected(): Set<String>
+
+    /**
+     * Not paused while the phone starts, when the lock screen may need
+     * them: every switched-on keyboard and accessibility service.
+     */
+    fun protectedAtStartup(): Set<String>
+
+    companion object {
+        val None = object : AssistiveApps {
+            override fun alwaysProtected() = emptySet<String>()
+            override fun protectedAtStartup() = emptySet<String>()
+        }
+    }
 }
 
 class AndroidAssistiveApps(private val context: Context) : AssistiveApps {
 
-    override fun packages(): Set<String> {
-        val resolver = context.contentResolver
+    override fun alwaysProtected(): Set<String> {
+        val keyboard = packagesFromComponentList(secureSetting(Settings.Secure.DEFAULT_INPUT_METHOD))
+        val tools = enabledAccessibilityServices()
+            .filter { it.isAccessibilityTool }
+            .mapNotNull { it.resolveInfo?.serviceInfo?.packageName }
+        return keyboard + tools
+    }
+
+    override fun protectedAtStartup(): Set<String> {
         // Read both the settings and the system services: before the first
         // unlock, the services may only list some of them.
-        val fromSettings = packagesFromComponentList(Settings.Secure.getString(resolver, Settings.Secure.ENABLED_INPUT_METHODS)) +
-            packagesFromComponentList(Settings.Secure.getString(resolver, Settings.Secure.DEFAULT_INPUT_METHOD)) +
-            packagesFromComponentList(Settings.Secure.getString(resolver, Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES))
+        val fromSettings = packagesFromComponentList(secureSetting(Settings.Secure.ENABLED_INPUT_METHODS)) +
+            packagesFromComponentList(secureSetting(Settings.Secure.DEFAULT_INPUT_METHOD)) +
+            packagesFromComponentList(secureSetting(Settings.Secure.ENABLED_ACCESSIBILITY_SERVICES))
         val keyboards = context.getSystemService(InputMethodManager::class.java)
             ?.enabledInputMethodList.orEmpty()
             .map { it.packageName }
-        val accessibility = context.getSystemService(AccessibilityManager::class.java)
-            ?.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK).orEmpty()
-            .mapNotNull { it.resolveInfo?.serviceInfo?.packageName }
+        val accessibility = enabledAccessibilityServices().mapNotNull { it.resolveInfo?.serviceInfo?.packageName }
         return fromSettings + keyboards + accessibility
     }
+
+    private fun secureSetting(name: String): String? = Settings.Secure.getString(context.contentResolver, name)
+
+    private fun enabledAccessibilityServices(): List<AccessibilityServiceInfo> =
+        context.getSystemService(AccessibilityManager::class.java)
+            ?.getEnabledAccessibilityServiceList(AccessibilityServiceInfo.FEEDBACK_ALL_MASK)
+            .orEmpty()
 }
 
 /**

@@ -52,8 +52,10 @@ class StartReceiver : BroadcastReceiver() {
             try {
                 app.container.devicePolicyAppBlocker.handOver(handOver)
             } finally {
-                // Started even if saving failed: the service still unpauses its own apps.
-                MonitorService.start(app)
+                // Checks straight away, even if the service is already running (for example
+                // because Screen time was opened right after the unlock). Done even if saving
+                // failed: the service still unpauses the apps it knows about.
+                MonitorService.checkNow(app)
                 pending?.finish()
             }
         }

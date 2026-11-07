@@ -24,10 +24,20 @@ class AssistiveAppsTest {
             systemApps = FakeSystemApps(phone = "dialer", emergency = "emergency", settings = "settings"),
             ownPackage = "org.openscreentime",
             homeScreenPackages = { emptySet() },
-            assistiveApps = { setOf("keyboard") },
+            assistiveApps = FakeAssistiveApps(always = setOf("keyboard", "reader"), atStartup = setOf("keyboard", "reader", "automation")),
         )
+        // The keyboard in use and accessibility tools are never blocked...
         assertTrue(policy.isAlwaysAllowed("keyboard", AlwaysAllowedConfig()))
+        assertTrue(policy.isAlwaysAllowed("reader", AlwaysAllowedConfig()))
+        // ...but an ordinary app with an accessibility service switched on can be.
+        assertFalse(policy.isAlwaysAllowed("automation", AlwaysAllowedConfig()))
+        assertTrue("automation" in policy.protectedAtStartup())
         assertFalse(policy.isAlwaysAllowed("video", AlwaysAllowedConfig()))
         assertFalse(policy.listed(AlwaysAllowedConfig()).any { it.packageName == "keyboard" })
     }
+}
+
+class FakeAssistiveApps(private val always: Set<String> = emptySet(), private val atStartup: Set<String> = always) : AssistiveApps {
+    override fun alwaysProtected() = always
+    override fun protectedAtStartup() = atStartup
 }
