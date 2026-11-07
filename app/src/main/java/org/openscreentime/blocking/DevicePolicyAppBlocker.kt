@@ -49,6 +49,26 @@ class DevicePolicyAppBlocker(
         dataStore.edit { it[PAUSED] = packages - failed }
     }
 
+    /**
+     * Pauses [packages] as the phone starts. Before the first unlock this
+     * app's saved data can't be read or written, so nothing is recorded
+     * here; [handOver] records them after the unlock.
+     */
+    fun pauseBeforeUnlock(packages: Set<String>) {
+        if (packages.isEmpty()) return
+        policy.setShortSupportMessage(admin, context.getString(R.string.block_support_message))
+        policy.setPackagesSuspended(admin, packages.toTypedArray(), true)
+    }
+
+    /**
+     * After the unlock: counts [packages] as paused by this app, so the next
+     * normal check unpauses the ones that should be allowed.
+     */
+    suspend fun handOver(packages: Set<String>) {
+        if (packages.isEmpty()) return
+        dataStore.edit { it[PAUSED] = (it[PAUSED] ?: emptySet()) + packages }
+    }
+
     private companion object {
         val PAUSED = stringSetPreferencesKey("paused")
     }

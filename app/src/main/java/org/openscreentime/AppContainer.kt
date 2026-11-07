@@ -10,7 +10,12 @@ import org.openscreentime.admin.AndroidDeviceOwner
 import org.openscreentime.admin.DeviceOwner
 import org.openscreentime.admin.DevicePolicyProtectionActions
 import org.openscreentime.admin.SelfProtection
+import org.openscreentime.admin.EnforcementMode
+import org.openscreentime.allowed.AlwaysAllowedConfig
 import org.openscreentime.allowed.AlwaysAllowedPolicy
+import org.openscreentime.allowed.AndroidAssistiveApps
+import org.openscreentime.blocking.StartupPause
+import org.openscreentime.blocking.allLaunchablePackages
 import org.openscreentime.allowed.AlwaysAllowedRepository
 import org.openscreentime.allowed.AndroidSystemApps
 import org.openscreentime.allowed.DataStoreAlwaysAllowedRepository
@@ -106,7 +111,18 @@ class AppContainer(context: Context) {
         systemApps = AndroidSystemApps(appContext),
         ownPackage = appContext.packageName,
         homeScreenPackages = { homeScreenPackages(appContext.packageManager) },
+        assistiveApps = AndroidAssistiveApps(appContext),
     )
+
+    /** Pauses apps as the phone starts, before the saved rules can be read. */
+    val startupPause = StartupPause(
+        isDeviceOwner = { deviceOwner.mode() == EnforcementMode.DeviceOwner },
+        launchablePackages = { allLaunchablePackages(appContext.packageManager) },
+        isProtected = { pkg -> alwaysAllowedPolicy.isAlwaysAllowed(pkg, AlwaysAllowedConfig()) },
+    )
+
+    /** The device-owner pauser itself, for the restart steps that only apply in that mode. */
+    val devicePolicyAppBlocker = DevicePolicyAppBlocker(appContext)
 
     val overrideRepository: OverrideRepository = DataStoreOverrideRepository(appContext.overrideDataStore)
 
@@ -120,7 +136,7 @@ class AppContainer(context: Context) {
     val shownWarningsStore: ShownWarningsStore = DataStoreShownWarningsStore(appContext.shownWarningsDataStore)
 
     /** Pauses apps when this app is the device owner; otherwise blocking can only be previewed. */
-    val appBlocker: AppBlocker = ModeAwareAppBlocker(deviceOwner, DevicePolicyAppBlocker(appContext))
+    val appBlocker: AppBlocker = ModeAwareAppBlocker(deviceOwner, devicePolicyAppBlocker)
 
     val usageEventSource = SystemUsageEventSource(appContext)
 

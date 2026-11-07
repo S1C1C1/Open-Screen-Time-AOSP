@@ -40,12 +40,14 @@ interface SystemApps {
 /**
  * Decides which apps are never blocked by limits or downtime: the user's
  * list, emergency calling (always), this screen time app (so the PIN can
- * always be entered) and the home screen.
+ * always be entered), the home screen, and the keyboards and accessibility
+ * services that are switched on (so no one is locked out of their phone).
  */
 class AlwaysAllowedPolicy(
     private val systemApps: SystemApps,
     private val ownPackage: String,
     private val homeScreenPackages: () -> Set<String>,
+    private val assistiveApps: AssistiveApps = AssistiveApps { emptySet() },
 ) {
     /** The list shown to the user, in a fixed order: Phone, Emergency, Settings, then added apps. */
     fun listed(config: AlwaysAllowedConfig): List<AllowedApp> {
@@ -63,6 +65,7 @@ class AlwaysAllowedPolicy(
     fun isAlwaysAllowed(packageName: String, config: AlwaysAllowedConfig): Boolean =
         packageName == ownPackage ||
             packageName in homeScreenPackages() ||
+            packageName in assistiveApps.packages() ||
             listed(config).any { it.packageName == packageName }
 
     /** The config after removing [app]. Emergency calling can't be removed, so it is ignored. */

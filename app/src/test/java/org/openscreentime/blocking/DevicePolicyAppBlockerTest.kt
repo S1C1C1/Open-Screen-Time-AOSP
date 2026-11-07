@@ -90,4 +90,19 @@ class DevicePolicyAppBlockerTest {
         ModeAwareAppBlocker(owner, blocker).setBlockedApps(setOf("com.example.video"))
         assertTrue(paused("com.example.video"))
     }
+
+    @Test
+    fun appsPausedAtStartupAreUnpausedOnceRulesAreChecked() = runBlocking {
+        // Before the unlock: paused, but nothing can be saved yet.
+        blocker.pauseBeforeUnlock(setOf("com.example.video", "com.example.maps"))
+        assertTrue(paused("com.example.video"))
+        assertEquals(emptySet<String>(), blocker.pausedApps())
+
+        // After the unlock: handed over, then the first check keeps only what the rules block.
+        blocker.handOver(setOf("com.example.video", "com.example.maps"))
+        blocker.setBlockedApps(setOf("com.example.maps"))
+        assertFalse(paused("com.example.video"))
+        assertTrue(paused("com.example.maps"))
+        assertEquals(setOf("com.example.maps"), blocker.pausedApps())
+    }
 }

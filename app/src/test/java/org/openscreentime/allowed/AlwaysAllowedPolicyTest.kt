@@ -18,7 +18,7 @@ class FakeSystemApps(
 class AlwaysAllowedPolicyTest {
 
     private val system = FakeSystemApps()
-    private val policy = AlwaysAllowedPolicy(system, ownPackage = "org.openscreentime") { setOf("com.example.launcher") }
+    private val policy = AlwaysAllowedPolicy(system, ownPackage = "org.openscreentime", homeScreenPackages = { setOf("com.example.launcher") })
     private val defaults = AlwaysAllowedConfig()
 
     @Test

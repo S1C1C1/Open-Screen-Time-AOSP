@@ -41,6 +41,7 @@ Tip: restrictions on **Developer options and debugging** stop `adb`. Use **Allow
 | 20 | Safe mode is blocked | Hold power, long-press **Power off**/**Restart**. | Safe mode isn't offered, or the phone starts normally. | | |
 | 21 | Factory reset still works | Open Settings → System → Reset options. **Don't reset** unless you're done testing. | **Erase all data** is available. | | |
 | 22 | Restart keeps everything | With a limit reached, downtime set, and restrictions on, restart the phone. | After restart: blocked apps are still paused, restrictions still on, "Screen time is on" notification is back. | | |
+| 22a | No gap after a restart | Make a schedule that starts 3 minutes from now. Turn the phone off before it starts, wait until after the start time, turn it on and unlock. Open the app quickly. | The app is paused right away, never usable. A few seconds after the unlock, apps the rules allow open normally again. The keyboard works on the lock screen throughout. | | |
 | 23 | Old history is deleted | Set **Keep usage history** to **1 week**. After 8+ days of use, look at last week's chart. | Days older than 7 aren't kept (earlier weeks' data is gone). | | |
 | 24 | Removing device owner undoes everything | Settings → **Blocking** → **Remove device owner** (PIN). | All apps unpaused, restrictions lifted, Screen time can be uninstalled. | | |
 
