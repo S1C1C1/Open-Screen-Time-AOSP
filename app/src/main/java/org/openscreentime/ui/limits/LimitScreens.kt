@@ -312,6 +312,17 @@ private fun StepRow(
     }
 }
 
+/** Small clock shown next to apps that a schedule is blocking right now. */
+@Composable
+fun ScheduleBadge(modifier: Modifier = Modifier) {
+    Icon(
+        painter = painterResource(R.drawable.ic_schedule),
+        contentDescription = stringResource(R.string.schedules_blocking_now),
+        tint = MaterialTheme.colorScheme.onSurfaceVariant,
+        modifier = modifier.size(16.dp),
+    )
+}
+
 /** Small hourglass shown next to apps that have a limit. */
 @Composable
 fun LimitBadge(modifier: Modifier = Modifier) {

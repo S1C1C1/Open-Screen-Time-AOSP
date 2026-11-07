@@ -6,6 +6,7 @@ import org.openscreentime.ui.components.AppIcon
 import org.openscreentime.ui.components.WeekBarChart
 import org.openscreentime.ui.dashboard.Dashboard
 import org.openscreentime.ui.limits.LimitBadge
+import org.openscreentime.ui.limits.ScheduleBadge
 import org.openscreentime.ui.dashboard.buildDashboard
 import org.openscreentime.ui.format.formatDayWithDate
 import org.openscreentime.usage.AppUsageTime
@@ -73,6 +74,8 @@ fun HomeScreen(
     onGroupsClick: () -> Unit = {},
     scheduleCount: Int = 0,
     scheduleOnCount: Int = 0,
+    /** Shown instead of the count while a schedule is on, like "Bedtime on until 6:00 AM". */
+    activeScheduleSummary: String? = null,
     onSchedulesClick: () -> Unit = {},
     downtimeSummary: String? = null,
     onDowntimeClick: () -> Unit = {},
@@ -152,6 +155,7 @@ fun HomeScreen(
             SettingsRow(
                 title = stringResource(R.string.schedules_title),
                 summary = when {
+                    activeScheduleSummary != null -> activeScheduleSummary
                     scheduleCount == 0 -> stringResource(R.string.schedules_none)
                     scheduleOnCount == 0 -> stringResource(R.string.schedules_all_off)
                     else -> pluralStringResource(R.plurals.schedules_on_count, scheduleOnCount, scheduleOnCount)
@@ -285,6 +289,7 @@ private fun AppListCard(dashboard: Dashboard, onAppClick: (String) -> Unit) {
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                         ) {
+                            if (app.scheduledNow) ScheduleBadge()
                             if (app.hasLimit) LimitBadge()
                             Text(
                                 text = formatDuration(app.time, resources),

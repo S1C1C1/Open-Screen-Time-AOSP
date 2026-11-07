@@ -4,7 +4,10 @@ import android.content.Context
 import androidx.test.core.app.ApplicationProvider
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Assert.assertEquals
+import org.junit.Assert.assertNull
 import org.junit.Test
+import org.openscreentime.schedules.ActiveSchedule
+import java.time.ZoneOffset
 import org.junit.runner.RunWith
 import java.time.DayOfWeek
 import java.util.Locale
@@ -29,5 +32,24 @@ class ScheduleFormatTest {
     @Test
     fun otherDaysAreListedInTheRegionsOrder() {
         assertEquals("Sun, Wed, Fri", format(DayOfWeek.FRIDAY, DayOfWeek.WEDNESDAY, DayOfWeek.SUNDAY))
+    }
+
+    @Test
+    fun activeSchedulesSummary() {
+        val end = java.time.LocalDate.of(2026, 11, 6).atTime(6, 0).atZone(ZoneOffset.UTC)
+        assertNull(formatActiveSchedules(emptyList(), resources, Locale.US, use24Hour = false))
+        assertEquals(
+            "Bedtime on until 6:00 AM",
+            formatActiveSchedules(listOf(ActiveSchedule("Bedtime", end)), resources, Locale.US, use24Hour = false),
+        )
+        assertEquals(
+            "Bedtime on until 6:00 AM, and 1 more",
+            formatActiveSchedules(
+                listOf(ActiveSchedule("Bedtime", end), ActiveSchedule("Study", end.plusHours(2))),
+                resources,
+                Locale.US,
+                use24Hour = false,
+            ),
+        )
     }
 }

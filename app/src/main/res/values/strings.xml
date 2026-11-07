@@ -203,6 +203,7 @@
     <string name="status_unlocked">Right now: extra time until %1$s</string>
     <string name="status_blocked_limit">Right now: would be blocked, limit reached</string>
     <string name="status_blocked_downtime">Right now: would be blocked by downtime</string>
+    <string name="status_blocked_group">Right now: would be blocked, %1$s limit reached</string>
     <string name="status_blocked_schedule">Right now: would be blocked by %1$s</string>
 
     <!-- Blocking (device owner) -->
@@ -307,6 +308,20 @@
         <item quantity="other">%1$d on</item>
     </plurals>
     <string name="schedules_all_off">All off</string>
+    <string name="schedules_active">%1$s on until %2$s</string>
+    <plurals name="schedules_active_more">
+        <item quantity="one">%1$s on until %2$s, and %3$d more</item>
+        <item quantity="other">%1$s on until %2$s, and %3$d more</item>
+    </plurals>
+    <string name="schedules_blocking_now">Blocked by a schedule now</string>
+    <string name="app_groups_header">App groups</string>
+    <string name="app_group_no_limit">In this group, no shared limit</string>
+    <string name="app_group_limit_left">%1$s · %2$s left today</string>
+    <string name="app_group_limit_reached">%1$s · limit reached today</string>
+    <string name="app_schedules_header">Schedules</string>
+    <string name="app_schedule_via_group">%1$s, through %2$s</string>
+    <string name="app_schedule_on_now">On now, until %1$s</string>
+    <string name="app_schedule_off">Switched off</string>
     <string name="schedules_intro">Block chosen apps and groups at set times, like during work or at bedtime. Other apps stay available.</string>
     <string name="schedules_pin_reminder">Set a PIN so only you can change these schedules.</string>
     <string name="schedules_new">New schedule</string>

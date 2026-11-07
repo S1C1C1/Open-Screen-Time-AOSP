@@ -39,6 +39,7 @@ import org.openscreentime.ui.appdetail.AppDetailScreen
 import kotlinx.coroutines.flow.map
 import org.openscreentime.limits.AppLimit
 import org.openscreentime.ui.downtime.DowntimeScreen
+import org.openscreentime.ui.format.formatActiveSchedules
 import org.openscreentime.ui.format.formatDowntimeStatus
 import org.openscreentime.ui.groups.GroupAppPickerScreen
 import org.openscreentime.ui.groups.GroupEditorScreen
@@ -138,6 +139,7 @@ private fun MainNavigation(viewModel: MainViewModel, state: AppUiState) {
             val enforcement by viewModel.enforcementMode.collectAsStateWithLifecycle()
             val restrictions by viewModel.restrictions.collectAsStateWithLifecycle()
             val schedules by viewModel.schedules.collectAsStateWithLifecycle()
+            val activeSchedules by viewModel.activeSchedules.collectAsStateWithLifecycle()
             val context = LocalContext.current
             var notificationsAllowed by remember { mutableStateOf(notificationsAllowed(context)) }
             val askForNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
@@ -177,6 +179,7 @@ private fun MainNavigation(viewModel: MainViewModel, state: AppUiState) {
                 onGroupsClick = { navController.navigate(Routes.GROUPS) },
                 scheduleCount = schedules.size,
                 scheduleOnCount = state.scheduleOnCount,
+                activeScheduleSummary = formatActiveSchedules(activeSchedules, resources, locale, use24Hour),
                 onSchedulesClick = { navController.navigate(Routes.SCHEDULES) },
             )
         }
@@ -408,6 +411,14 @@ private fun MainNavigation(viewModel: MainViewModel, state: AppUiState) {
                 detail = detail,
                 onBack = { navController.popBackStack() },
                 onLimitClick = { navController.navigate(Routes.limitEditor(packageName)) },
+                onGroupClick = { id ->
+                    viewModel.editGroup(id)
+                    navController.navigate(Routes.GROUP_EDITOR)
+                },
+                onScheduleClick = { id ->
+                    viewModel.editSchedule(id)
+                    navController.navigate(Routes.SCHEDULE_EDITOR)
+                },
             )
         }
     }

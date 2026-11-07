@@ -178,4 +178,18 @@ class NavigationTest {
         composeRule.onNodeWithContentDescription("Back").performClick()
         composeRule.onNodeWithText("1 on").performScrollTo().assertIsDisplayed()
     }
+
+    @Test
+    fun openAGroupFromAnAppsPage() {
+        val viewModel = startApp()
+        kotlinx.coroutines.runBlocking {
+            viewModel.startNewGroup("Travel", setOf("maps"))
+        }
+        viewModel.saveGroup {}
+        composeRule.onNodeWithText("Maps").performScrollTo().performClick()
+        composeRule.onNodeWithText("App groups").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Travel").performScrollTo().performClick()
+        composeRule.onNodeWithText("Group name").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Remove Maps").performScrollTo().assertIsDisplayed()
+    }
 }
