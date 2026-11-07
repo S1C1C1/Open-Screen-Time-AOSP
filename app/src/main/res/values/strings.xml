@@ -46,7 +46,6 @@
     <string name="app_limit_none">No limit</string>
     <string name="app_limit_time_left">%1$s left today</string>
     <string name="app_limit_reached">Limit reached for today</string>
-    <string name="app_limit_blocking_coming">Blocking apps when their limit is reached comes in a later test build.</string>
 
     <!-- App limits -->
     <string name="limits_title">App limits</string>
@@ -150,7 +149,6 @@
     <string name="downtime_status_today">Starts today at %1$s</string>
     <string name="downtime_status_tomorrow">Starts tomorrow at %1$s</string>
     <string name="downtime_status_day">Starts %1$s at %2$s</string>
-    <string name="downtime_blocking_coming">Blocking apps during downtime comes in a later test build.</string>
 
     <!-- Always allowed apps -->
     <string name="allowed_title">Always allowed</string>
