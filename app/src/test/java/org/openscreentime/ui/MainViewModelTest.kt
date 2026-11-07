@@ -620,9 +620,25 @@ class MainViewModelTest {
 
     private val noon = java.time.Instant.parse("2026-11-05T12:00:00Z")
 
+    /** Opens the real block screen (as in device-owner mode), whose buttons save extra time. */
     private fun MainViewModel.preview(reason: BlockReason = BlockReason.LimitReached, pkg: String? = "video") {
-        previewBlockScreen(pkg, reason)
+        openBlockScreen(pkg, reason, real = true)
         currentState()
+    }
+
+    @Test
+    fun previewButtonsSaveNothing() {
+        settings.state(LimitMode.Grace)
+        val viewModel = newViewModel()
+        viewModel.previewBlockScreen("video", BlockReason.LimitReached)
+        viewModel.currentState()
+        assertTrue(viewModel.blockScreenUi.value!!.isPreview)
+
+        viewModel.blockOneMoreMinute()
+        viewModel.currentState()
+        assertNull(viewModel.blockScreenUi.value)
+        // Neither extra time nor the day's "one more minute" was used up.
+        assertTrue(overrides.saved.value.isEmpty())
     }
 
     @Test

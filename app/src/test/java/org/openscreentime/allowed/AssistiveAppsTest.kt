@@ -35,6 +35,18 @@ class AssistiveAppsTest {
         assertFalse(policy.isAlwaysAllowed("video", AlwaysAllowedConfig()))
         assertFalse(policy.listed(AlwaysAllowedConfig()).any { it.packageName == "keyboard" })
     }
+
+    @Test
+    fun everyHomeScreenIsProtectedAtStartupButOnlyTheOneInUseLater() {
+        val policy = AlwaysAllowedPolicy(
+            systemApps = FakeSystemApps(phone = "dialer", emergency = "emergency", settings = "settings"),
+            ownPackage = "org.openscreentime",
+            homeScreenPackages = { setOf("launcher") },
+            allHomeScreenPackages = { setOf("launcher", "otherlauncher") },
+        )
+        assertFalse(policy.isAlwaysAllowed("otherlauncher", AlwaysAllowedConfig()))
+        assertTrue("otherlauncher" in policy.protectedAtStartup())
+    }
 }
 
 class FakeAssistiveApps(private val always: Set<String> = emptySet(), private val atStartup: Set<String> = always) : AssistiveApps {
