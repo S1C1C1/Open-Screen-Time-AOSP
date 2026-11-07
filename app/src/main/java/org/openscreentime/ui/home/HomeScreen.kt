@@ -71,6 +71,9 @@ fun HomeScreen(
     onLimitsClick: () -> Unit = {},
     groupCount: Int = 0,
     onGroupsClick: () -> Unit = {},
+    scheduleCount: Int = 0,
+    scheduleOnCount: Int = 0,
+    onSchedulesClick: () -> Unit = {},
     downtimeSummary: String? = null,
     onDowntimeClick: () -> Unit = {},
     alwaysAllowedCount: Int = 0,
@@ -144,6 +147,16 @@ fun HomeScreen(
                     pluralStringResource(R.plurals.groups_count, groupCount, groupCount)
                 },
                 onClick = onGroupsClick,
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainer)
+            SettingsRow(
+                title = stringResource(R.string.schedules_title),
+                summary = when {
+                    scheduleCount == 0 -> stringResource(R.string.schedules_none)
+                    scheduleOnCount == 0 -> stringResource(R.string.schedules_all_off)
+                    else -> pluralStringResource(R.plurals.schedules_on_count, scheduleOnCount, scheduleOnCount)
+                },
+                onClick = onSchedulesClick,
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainer)
             SettingsRow(

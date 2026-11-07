@@ -75,6 +75,15 @@ object Notifications {
                     warning.groupName,
                 )
             }
+            is Warning.ScheduleSoon -> context.getString(
+                R.string.notify_schedule_soon,
+                warning.name,
+                formatTime(
+                    warning.start.toLocalTime(),
+                    context.resources.configuration.locales[0],
+                    DateFormat.is24HourFormat(context),
+                ),
+            )
             is Warning.DowntimeSoon -> context.getString(
                 R.string.notify_downtime_soon,
                 formatTime(

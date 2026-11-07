@@ -87,7 +87,7 @@ class BlockActivity : ComponentActivity() {
     private fun showFor(intent: Intent) {
         val pkg = intent.getStringExtra(EXTRA_PACKAGE) ?: return finish()
         val reason = intent.getStringExtra(EXTRA_REASON)?.let { BlockReason.valueOf(it) } ?: BlockReason.LimitReached
-        viewModel.openBlockScreen(pkg, reason, real = true, groupName = intent.getStringExtra(EXTRA_GROUP))
+        viewModel.openBlockScreen(pkg, reason, real = true, ruleName = intent.getStringExtra(EXTRA_RULE))
     }
 
     /** Sends the user to the home screen, away from the blocked app. */
@@ -100,13 +100,13 @@ class BlockActivity : ComponentActivity() {
     companion object {
         private const val EXTRA_PACKAGE = "package"
         private const val EXTRA_REASON = "reason"
-        private const val EXTRA_GROUP = "group"
+        private const val EXTRA_RULE = "rule"
 
-        fun intent(context: Context, packageName: String, reason: BlockReason, groupName: String? = null): Intent =
+        fun intent(context: Context, packageName: String, reason: BlockReason, ruleName: String? = null): Intent =
             Intent(context, BlockActivity::class.java)
                 .putExtra(EXTRA_PACKAGE, packageName)
                 .putExtra(EXTRA_REASON, reason.name)
-                .putExtra(EXTRA_GROUP, groupName)
+                .putExtra(EXTRA_RULE, ruleName)
                 .addFlags(Intent.FLAG_ACTIVITY_NEW_TASK or Intent.FLAG_ACTIVITY_CLEAR_TOP)
     }
 }

@@ -53,7 +53,7 @@ data class BlockScreenUi(
     /** True in phase 1, where block screens can only be previewed. */
     val isPreview: Boolean = true,
     /** Set when the app is blocked by a group's shared limit rather than its own. */
-    val groupName: String? = null,
+    val ruleName: String? = null,
 )
 
 class BlockActions(
@@ -125,7 +125,11 @@ private fun BlockMessage(ui: BlockScreenUi, actions: BlockActions) {
     }
     Spacer(Modifier.height(24.dp))
     Text(
-        stringResource(if (ui.reason == BlockReason.Downtime) R.string.block_downtime_title else R.string.block_limit_title),
+        when (ui.reason) {
+            BlockReason.Downtime -> stringResource(R.string.block_downtime_title)
+            BlockReason.Scheduled -> ui.ruleName ?: stringResource(R.string.block_schedule_title)
+            BlockReason.LimitReached -> stringResource(R.string.block_limit_title)
+        },
         style = MaterialTheme.typography.headlineMedium,
         textAlign = TextAlign.Center,
     )
@@ -133,7 +137,9 @@ private fun BlockMessage(ui: BlockScreenUi, actions: BlockActions) {
     Text(
         when {
             ui.reason == BlockReason.Downtime -> stringResource(R.string.block_downtime_body, label, until)
-            ui.groupName != null -> stringResource(R.string.block_group_limit_body, ui.groupName, label)
+            ui.reason == BlockReason.Scheduled ->
+                stringResource(R.string.block_schedule_body, label, ui.ruleName ?: stringResource(R.string.block_schedule_title), until)
+            ui.ruleName != null -> stringResource(R.string.block_group_limit_body, ui.ruleName, label)
             else -> stringResource(R.string.block_limit_body, label)
         },
         style = MaterialTheme.typography.bodyLarge,
@@ -188,7 +194,11 @@ private fun UnlockChoice(ui: BlockScreenUi, actions: BlockActions) {
             UnlockDuration.FifteenMinutes to R.string.unlock_15_minutes,
             UnlockDuration.OneHour to R.string.unlock_1_hour,
             UnlockDuration.RestOfDay to
-                if (ui.reason == BlockReason.Downtime) R.string.unlock_until_downtime_ends else R.string.unlock_rest_of_day,
+                when (ui.reason) {
+                    BlockReason.Downtime -> R.string.unlock_until_downtime_ends
+                    BlockReason.Scheduled -> R.string.unlock_until_schedule_ends
+                    BlockReason.LimitReached -> R.string.unlock_rest_of_day
+                },
         ).forEach { (duration, text) ->
             FilledTonalButton(onClick = { actions.onUnlock(duration) }, modifier = Modifier.fillMaxWidth()) {
                 Text(stringResource(text))

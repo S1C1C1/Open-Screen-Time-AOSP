@@ -135,7 +135,9 @@ private fun blockStatusText(decision: BlockDecision): String = when (decision) {
             DateFormat.is24HourFormat(LocalContext.current),
         ),
     )
-    is BlockDecision.Blocked -> stringResource(
-        if (decision.reason == BlockReason.Downtime) R.string.status_blocked_downtime else R.string.status_blocked_limit,
-    )
+    is BlockDecision.Blocked -> when (decision.reason) {
+        BlockReason.Downtime -> stringResource(R.string.status_blocked_downtime)
+        BlockReason.Scheduled -> stringResource(R.string.status_blocked_schedule, decision.ruleName.orEmpty())
+        BlockReason.LimitReached -> stringResource(R.string.status_blocked_limit)
+    }
 }

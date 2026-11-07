@@ -4,6 +4,7 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.openscreentime.schedules.ActiveSchedule
 import org.openscreentime.groups.GroupUsage
 import org.openscreentime.groups.DailyLimit
 import org.openscreentime.groups.AppGroup
@@ -165,7 +166,7 @@ class BlockRulesTest {
     fun reachingAGroupLimitBlocksUntilMidnightAndNamesTheGroup() {
         assertEquals(BlockDecision.Allowed, decideWithGroup(minutes(59)))
         assertEquals(
-            BlockDecision.Blocked(BlockReason.LimitReached, midnight, graceAvailable = false, groupName = "Social"),
+            BlockDecision.Blocked(BlockReason.LimitReached, midnight, graceAvailable = false, ruleName = "Social"),
             decideWithGroup(minutes(60)),
         )
     }
@@ -183,5 +184,48 @@ class BlockRulesTest {
             groups = listOf(GroupUsage(social, social.limit!!, minutes(90))),
         )
         assertEquals(BlockDecision.Allowed, result)
+    }
+
+    // --- Schedules ---
+
+    private val workEnd = thursday.atTime(17, 0).atZone(zone)
+
+    private fun decideWithSchedule(
+        schedules: List<ActiveSchedule> = listOf(ActiveSchedule("Work", workEnd)),
+        now: Instant = at("15:00"),
+        downtime: DowntimeSchedule = noDowntime,
+        alwaysAllowed: Boolean = false,
+        used: Duration = Duration.ZERO,
+    ) = BlockRules.decide(now, zone, used, hourLimit, downtime, alwaysAllowed, AppOverride(), LimitMode.Strict, schedules = schedules)
+
+    @Test
+    fun anActiveScheduleBlocksUntilItEndsAndNamesIt() {
+        assertEquals(
+            BlockDecision.Blocked(BlockReason.Scheduled, workEnd, graceAvailable = false, ruleName = "Work"),
+            decideWithSchedule(),
+        )
+    }
+
+    @Test
+    fun withSeveralSchedulesTheAppStaysBlockedUntilTheLastEnds() {
+        val later = thursday.atTime(19, 0).atZone(zone)
+        val result = decideWithSchedule(listOf(ActiveSchedule("Work", workEnd), ActiveSchedule("Homework", later)))
+        assertEquals(BlockDecision.Blocked(BlockReason.Scheduled, later, graceAvailable = false, ruleName = "Homework"), result)
+    }
+
+    @Test
+    fun downtimeComesBeforeASchedule() {
+        val result = decideWithSchedule(now = at("22:00"), downtime = nightDowntime) as BlockDecision.Blocked
+        assertEquals(BlockReason.Downtime, result.reason)
+    }
+
+    @Test
+    fun aScheduleComesBeforeAReachedLimit() {
+        assertEquals(BlockReason.Scheduled, (decideWithSchedule(used = minutes(90)) as BlockDecision.Blocked).reason)
+    }
+
+    @Test
+    fun alwaysAllowedAppIsNotBlockedByASchedule() {
+        assertEquals(BlockDecision.Allowed, decideWithSchedule(alwaysAllowed = true))
     }
 }

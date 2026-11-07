@@ -64,7 +64,22 @@ It is designed to ship as a **privileged system app** built into a ROM, with Gra
 - Extra time (PIN, one more minute, ignore for 15 minutes) is given per app, as for app limits.
 - Always allowed apps are never blocked by a group, but their time still counts towards the group's total.
 - Same PIN rule as app limits: groups can be made without a PIN (with a reminder to set one); once a PIN is set, saving or deleting a group needs it.
-- App schedules (blocking chosen apps and groups during set times, with Work/School and Bedtime presets) come next and build on groups.
+
+#### App schedules
+
+- A schedule blocks chosen apps and groups during set times on chosen days, for example during work or at bedtime. The user picks what to block (a block list); every other app stays available.
+- Each schedule has a name, an on/off switch, one or more days, and a start and end time at any minute. If the end is earlier than the start, it runs overnight and ends the next morning; the window belongs to the day it starts.
+- Users can make any number of custom schedules. Two presets fill in a new schedule, which can be changed before saving:
+  - **Work or school:** 8:00 AM to 5:00 PM, Monday to Friday.
+  - **Bedtime:** 9:00 PM to 6:00 AM, every day.
+- A schedule can block single apps and whole groups. A group's apps are read when the schedule runs, so apps added to the group later are blocked too. Deleting a group removes it from schedules.
+- Order when several rules apply: downtime first, then schedules, then limits. If several schedules are on at once, the app stays blocked until the last one ends.
+- The block screen names the schedule: "Video is blocked by Work hours until 5:00 PM."
+- A notification comes 5 minutes before a schedule starts ("Bedtime starts at 9:00 PM"), unless everything it blocks is always allowed.
+- The same limit modes apply. Extra time is given per app; "rest of the day" lasts until the schedule ends.
+- Always allowed apps are never blocked by a schedule.
+- Same PIN rule as limits and groups: schedules can be made without a PIN (with a reminder); once a PIN is set, saving, switching off or deleting a schedule needs it.
+- Downtime stays separate from the Bedtime preset: downtime blocks every app except always allowed ones, while a schedule only blocks what it lists.
 
 ### 3. Downtime schedule
 
@@ -225,6 +240,7 @@ Testers should confirm each item on a real device or a GrapheneOS emulator build
 - [ ] A 15-minute limit blocks the app at 15 minutes, in each limit mode.
 - [ ] Limits reset at midnight.
 - [ ] A group's shared limit blocks every app in the group once their total time reaches it.
+- [ ] A schedule blocks its apps and groups at its start time and unblocks them at its end, including overnight schedules.
 - [ ] Downtime blocks all apps except always allowed apps, and ends on schedule.
 - [ ] Emergency calling works during downtime and when every other app is blocked.
 - [ ] The PIN unlocks more time, and wrong PINs are throttled.

@@ -180,6 +180,8 @@
     <string name="block_this_app">This app</string>
     <string name="block_limit_title">Time limit reached</string>
     <string name="block_group_limit_body">You\'ve reached today\'s limit for %1$s. %2$s can be used again tomorrow.</string>
+    <string name="block_schedule_title">App schedule</string>
+    <string name="block_schedule_body">%1$s is blocked by %2$s until %3$s.</string>
     <string name="block_limit_body">You\'ve reached today\'s limit for %1$s. It can be used again tomorrow.</string>
     <string name="block_downtime_title">Downtime</string>
     <string name="block_downtime_body">%1$s isn\'t available until %2$s.</string>
@@ -193,6 +195,7 @@
     <string name="unlock_1_hour">1 hour</string>
     <string name="unlock_rest_of_day">Rest of the day</string>
     <string name="unlock_until_downtime_ends">Until downtime ends</string>
+    <string name="unlock_until_schedule_ends">Until the schedule ends</string>
     <string name="block_preview">Preview block screen</string>
     <string name="block_get_more_time">Get more time</string>
     <string name="block_support_message">Paused by Screen time. Open Screen time to get more time.</string>
@@ -200,6 +203,7 @@
     <string name="status_unlocked">Right now: extra time until %1$s</string>
     <string name="status_blocked_limit">Right now: would be blocked, limit reached</string>
     <string name="status_blocked_downtime">Right now: would be blocked by downtime</string>
+    <string name="status_blocked_schedule">Right now: would be blocked by %1$s</string>
 
     <!-- Blocking (device owner) -->
     <string name="blocking_title">Blocking</string>
@@ -230,6 +234,7 @@
         <item quantity="one">%1$d min left on %2$s today</item>
         <item quantity="other">%1$d min left on %2$s today</item>
     </plurals>
+    <string name="notify_schedule_soon">%1$s starts at %2$s</string>
     <string name="notify_downtime_soon">Downtime starts at %1$s</string>
     <string name="notify_prompt">Allow notifications to get a warning 5 minutes before time is up.</string>
     <string name="notify_prompt_allow">Allow</string>
@@ -295,6 +300,39 @@
     <string name="groups_cancel">Cancel</string>
     <string name="groups_choose_apps">Choose apps</string>
     <string name="groups_done">Done</string>
+    <string name="schedules_title">App schedules</string>
+    <string name="schedules_none">No schedules</string>
+    <plurals name="schedules_on_count">
+        <item quantity="one">%1$d on</item>
+        <item quantity="other">%1$d on</item>
+    </plurals>
+    <string name="schedules_all_off">All off</string>
+    <string name="schedules_intro">Block chosen apps and groups at set times, like during work or at bedtime. Other apps stay available.</string>
+    <string name="schedules_pin_reminder">Set a PIN so only you can change these schedules.</string>
+    <string name="schedules_new">New schedule</string>
+    <string name="schedules_presets">Presets</string>
+    <string name="schedules_preset_note">Presets are a starting point. You can change the times, days and apps before saving.</string>
+    <string name="schedule_preset_work">Work or school</string>
+    <string name="schedule_preset_bedtime">Bedtime</string>
+    <string name="schedules_summary_off">Off · %1$s</string>
+    <string name="schedules_summary">%1$s, %2$s</string>
+    <string name="schedules_every_day">Every day</string>
+    <string name="schedules_weekdays">Monday to Friday</string>
+    <string name="schedules_weekends">Saturday and Sunday</string>
+    <string name="schedules_name">Schedule name</string>
+    <string name="schedules_switch">Use this schedule</string>
+    <string name="schedules_days">Days</string>
+    <string name="schedules_no_days">Choose at least one day.</string>
+    <string name="schedules_blocks_header">Blocked during this schedule</string>
+    <string name="schedules_nothing_blocked">Nothing yet. Choose apps or groups to block.</string>
+    <string name="schedules_choose">Choose apps and groups</string>
+    <string name="schedules_groups_header">Groups</string>
+    <string name="schedules_apps_header">Apps</string>
+    <string name="schedules_remove">Remove %1$s</string>
+    <string name="schedules_delete">Delete schedule</string>
+    <string name="schedules_delete_title">Delete %1$s?</string>
+    <string name="schedules_delete_body">The apps it blocks will be available again during these times.</string>
+    <string name="schedules_note">During this time, the apps and groups below are blocked. Always allowed apps are never blocked. Downtime still applies on its own.</string>
     <string name="group_suggest_social">Social</string>
     <string name="group_suggest_games">Games</string>
     <string name="group_suggest_video">Video</string>

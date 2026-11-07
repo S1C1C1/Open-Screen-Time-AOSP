@@ -30,6 +30,8 @@ import org.openscreentime.downtime.downtimeDataStore
 import org.openscreentime.groups.GroupRepository
 import org.openscreentime.groups.RoomGroupRepository
 import org.openscreentime.limits.LimitRepository
+import org.openscreentime.schedules.RoomScheduleRepository
+import org.openscreentime.schedules.ScheduleRepository
 import org.openscreentime.limits.RoomLimitRepository
 import org.openscreentime.pin.DataStorePinStore
 import org.openscreentime.pin.DeviceClock
@@ -92,6 +94,8 @@ class AppContainer(context: Context) {
     val limitRepository: LimitRepository by lazy { RoomLimitRepository(database.appLimitDao()) }
 
     val groupRepository: GroupRepository by lazy { RoomGroupRepository(database.appGroupDao()) }
+
+    val scheduleRepository: ScheduleRepository by lazy { RoomScheduleRepository(database.appScheduleDao()) }
 
     val downtimeRepository: DowntimeRepository = DataStoreDowntimeRepository(appContext.downtimeDataStore)
 

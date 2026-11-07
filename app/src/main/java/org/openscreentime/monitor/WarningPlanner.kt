@@ -5,6 +5,7 @@ import org.openscreentime.downtime.DowntimeStatus
 import org.openscreentime.groups.AppGroup
 import org.openscreentime.groups.GroupRules
 import org.openscreentime.limits.AppLimit
+import org.openscreentime.schedules.AppSchedule
 import org.openscreentime.usage.AppUsageTime
 import java.time.Duration
 import java.time.Instant
@@ -22,6 +23,10 @@ sealed interface Warning {
 
     data class GroupLimitSoon(val groupId: Long, val groupName: String, val left: Duration, val day: Long) : Warning {
         override val key get() = "group:$groupId:$day"
+    }
+
+    data class ScheduleSoon(val scheduleId: Long, val name: String, val start: ZonedDateTime) : Warning {
+        override val key get() = "schedule:$scheduleId:${start.toEpochSecond()}"
     }
 
     data class DowntimeSoon(val start: ZonedDateTime) : Warning {
@@ -46,6 +51,7 @@ object WarningPlanner {
         isAlwaysAllowed: (String) -> Boolean,
         alreadyShown: Set<String>,
         groups: List<AppGroup> = emptyList(),
+        schedules: List<AppSchedule> = emptyList(),
     ): List<Warning> {
         val today = now.atZone(zone).toLocalDate()
         val used = usageToday.associate { it.packageName to it.time }
@@ -79,6 +85,16 @@ object WarningPlanner {
             if (untilStart <= WARN_BEFORE) warnings += Warning.DowntimeSoon(status.start)
         }
 
+        // One warning for each schedule start, within 5 minutes of it.
+        // Skipped when the schedule would block nothing.
+        for (schedule in schedules) {
+            if (schedule.blockedPackages(groups).all(isAlwaysAllowed)) continue
+            val starts = schedule.status(now, zone) as? DowntimeStatus.StartsAt ?: continue
+            if (Duration.between(now, starts.start.toInstant()) <= WARN_BEFORE) {
+                warnings += Warning.ScheduleSoon(schedule.id, schedule.name, starts.start)
+            }
+        }
+
         return warnings.filter { it.key !in alreadyShown }
     }
 
@@ -88,5 +104,7 @@ object WarningPlanner {
         limits: List<AppLimit>,
         downtime: DowntimeSchedule,
         groups: List<AppGroup> = emptyList(),
-    ): Boolean = trackingEnabled && (limits.isNotEmpty() || downtime.enabled || groups.any { it.limit != null })
+        schedules: List<AppSchedule> = emptyList(),
+    ): Boolean = trackingEnabled &&
+        (limits.isNotEmpty() || downtime.enabled || groups.any { it.limit != null } || schedules.any { it.enabled })
 }

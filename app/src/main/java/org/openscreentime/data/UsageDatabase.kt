@@ -7,6 +7,7 @@ import androidx.room.Database
 import androidx.room.Embedded
 import androidx.room.Entity
 import androidx.room.ForeignKey
+import androidx.room.Index
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
@@ -151,18 +152,126 @@ abstract class AppGroupDao {
 }
 
 /**
+ * A schedule. [days] is a bitmask (Monday = 1, Tuesday = 2, … Sunday = 64);
+ * times are minutes after midnight.
+ */
+@Entity(tableName = "app_schedules")
+data class AppScheduleEntity(
+    @PrimaryKey(autoGenerate = true) @ColumnInfo(name = "id") val id: Long = 0,
+    @ColumnInfo(name = "name") val name: String,
+    @ColumnInfo(name = "enabled") val enabled: Boolean,
+    @ColumnInfo(name = "days") val days: Int,
+    @ColumnInfo(name = "start_minute") val startMinute: Int,
+    @ColumnInfo(name = "end_minute") val endMinute: Int,
+)
+
+/** One app a schedule blocks. Deleting the schedule deletes these. */
+@Entity(
+    tableName = "app_schedule_apps",
+    primaryKeys = ["schedule_id", "package_name"],
+    foreignKeys = [
+        ForeignKey(
+            entity = AppScheduleEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["schedule_id"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+)
+data class AppScheduleAppEntity(
+    @ColumnInfo(name = "schedule_id") val scheduleId: Long,
+    @ColumnInfo(name = "package_name") val packageName: String,
+)
+
+/** One group a schedule blocks. Deleting the schedule or the group deletes these. */
+@Entity(
+    tableName = "app_schedule_groups",
+    primaryKeys = ["schedule_id", "group_id"],
+    foreignKeys = [
+        ForeignKey(
+            entity = AppScheduleEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["schedule_id"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+        ForeignKey(
+            entity = AppGroupEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["group_id"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+    indices = [Index("group_id")],
+)
+data class AppScheduleGroupEntity(
+    @ColumnInfo(name = "schedule_id") val scheduleId: Long,
+    @ColumnInfo(name = "group_id") val groupId: Long,
+)
+
+data class ScheduleWithTargets(
+    @Embedded val schedule: AppScheduleEntity,
+    @Relation(parentColumn = "id", entityColumn = "schedule_id")
+    val apps: List<AppScheduleAppEntity>,
+    @Relation(parentColumn = "id", entityColumn = "schedule_id")
+    val groups: List<AppScheduleGroupEntity>,
+)
+
+@Dao
+abstract class AppScheduleDao {
+    @Transaction
+    @Query("SELECT * FROM app_schedules ORDER BY name COLLATE NOCASE")
+    abstract fun all(): Flow<List<ScheduleWithTargets>>
+
+    @Insert
+    protected abstract suspend fun insert(schedule: AppScheduleEntity): Long
+
+    @Update
+    protected abstract suspend fun update(schedule: AppScheduleEntity)
+
+    @Query("DELETE FROM app_schedule_apps WHERE schedule_id = :scheduleId")
+    protected abstract suspend fun clearApps(scheduleId: Long)
+
+    @Query("DELETE FROM app_schedule_groups WHERE schedule_id = :scheduleId")
+    protected abstract suspend fun clearGroups(scheduleId: Long)
+
+    @Insert
+    protected abstract suspend fun insertApps(apps: List<AppScheduleAppEntity>)
+
+    @Insert
+    protected abstract suspend fun insertGroups(groups: List<AppScheduleGroupEntity>)
+
+    /** Adds or replaces a schedule with its apps and groups in one step. Returns its id. */
+    @Transaction
+    open suspend fun save(schedule: AppScheduleEntity, packages: Set<String>, groupIds: Set<Long>): Long {
+        val id = if (schedule.id == 0L) insert(schedule) else schedule.id.also { update(schedule) }
+        clearApps(id)
+        clearGroups(id)
+        insertApps(packages.map { AppScheduleAppEntity(id, it) })
+        insertGroups(groupIds.map { AppScheduleGroupEntity(id, it) })
+        return id
+    }
+
+    @Query("DELETE FROM app_schedules WHERE id = :scheduleId")
+    abstract suspend fun delete(scheduleId: Long)
+}
+
+/**
  * The app's database. When its layout changes, raise [version] and add a
  * migration, so saved usage history is kept when the app is updated.
- * Version 2 added app limits; version 3 added app groups.
+ * Version 2 added app limits; version 3 added app groups; version 4 added schedules.
  */
 @Database(
-    entities = [DailyUsageEntity::class, AppLimitEntity::class, AppGroupEntity::class, AppGroupMemberEntity::class],
-    version = 3,
+    entities = [
+        DailyUsageEntity::class, AppLimitEntity::class, AppGroupEntity::class, AppGroupMemberEntity::class,
+        AppScheduleEntity::class, AppScheduleAppEntity::class, AppScheduleGroupEntity::class,
+    ],
+    version = 4,
     exportSchema = true,
-    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3)],
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3), AutoMigration(from = 3, to = 4)],
 )
 abstract class UsageDatabase : RoomDatabase() {
     abstract fun dailyUsageDao(): DailyUsageDao
     abstract fun appLimitDao(): AppLimitDao
     abstract fun appGroupDao(): AppGroupDao
+    abstract fun appScheduleDao(): AppScheduleDao
 }
