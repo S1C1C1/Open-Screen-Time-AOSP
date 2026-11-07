@@ -40,6 +40,9 @@ import kotlinx.coroutines.flow.map
 import org.openscreentime.limits.AppLimit
 import org.openscreentime.ui.downtime.DowntimeScreen
 import org.openscreentime.ui.format.formatDowntimeStatus
+import org.openscreentime.ui.groups.GroupAppPickerScreen
+import org.openscreentime.ui.groups.GroupEditorScreen
+import org.openscreentime.ui.groups.GroupListScreen
 import org.openscreentime.ui.home.HomeScreen
 import org.openscreentime.ui.limits.AppPickerScreen
 import org.openscreentime.ui.limits.LimitEditorScreen
@@ -148,7 +151,8 @@ private fun MainNavigation(viewModel: MainViewModel, state: AppUiState) {
                 restrictionsOnCount = restrictions.enabled.size,
                 onRestrictionsClick = { navController.navigate(Routes.RESTRICTIONS) },
                 // Warnings only matter once there's a limit or downtime to warn about.
-                showNotificationPrompt = !notificationsAllowed && (state.limitCount > 0 || downtime.schedule.enabled),
+                showNotificationPrompt = !notificationsAllowed &&
+                    (state.limitCount > 0 || state.groupLimitCount > 0 || downtime.schedule.enabled),
                 onAllowNotifications = { askForNotifications.launch(Manifest.permission.POST_NOTIFICATIONS) },
                 onBlockingClick = { navController.navigate(Routes.BLOCKING) },
                 onLimitModeChange = viewModel::setLimitMode,
@@ -165,6 +169,55 @@ private fun MainNavigation(viewModel: MainViewModel, state: AppUiState) {
                 onPinClick = viewModel::onPinSettingClick,
                 limitCount = state.limitCount,
                 onLimitsClick = { navController.navigate(Routes.LIMITS) },
+                groupCount = state.groupCount,
+                onGroupsClick = { navController.navigate(Routes.GROUPS) },
+            )
+        }
+        composable(Routes.GROUPS) {
+            val groups by viewModel.groups.collectAsStateWithLifecycle()
+            val suggestions by remember { viewModel.groupSuggestions() }.collectAsStateWithLifecycle(initialValue = emptyList())
+            GroupListScreen(
+                groups = groups,
+                suggestions = suggestions,
+                pinSet = state.pinSet,
+                onBack = { navController.popBackStack() },
+                onGroupClick = { id ->
+                    viewModel.editGroup(id)
+                    navController.navigate(Routes.GROUP_EDITOR)
+                },
+                onNewGroup = {
+                    viewModel.startNewGroup()
+                    navController.navigate(Routes.GROUP_EDITOR)
+                },
+                onSuggestionClick = { suggestion ->
+                    viewModel.startNewGroup(suggestion.name, suggestion.packages)
+                    navController.navigate(Routes.GROUP_EDITOR)
+                },
+                onSetPinClick = viewModel::startPinSetup,
+            )
+        }
+        composable(Routes.GROUP_EDITOR) {
+            val draft by viewModel.groupDraft.collectAsStateWithLifecycle()
+            draft?.let { current ->
+                GroupEditorScreen(
+                    draft = current,
+                    labelFor = viewModel::labelFor,
+                    onChange = viewModel::updateGroupDraft,
+                    onChooseApps = { navController.navigate(Routes.GROUP_APPS) },
+                    onBack = { navController.popBackStack() },
+                    onSave = { viewModel.saveGroup { navController.popBackStack() } },
+                    onDelete = { viewModel.deleteGroup { navController.popBackStack() } },
+                )
+            }
+        }
+        composable(Routes.GROUP_APPS) {
+            val draft by viewModel.groupDraft.collectAsStateWithLifecycle()
+            val apps by remember { viewModel.appsForGroups() }.collectAsStateWithLifecycle(initialValue = emptyList())
+            GroupAppPickerScreen(
+                apps = apps,
+                selected = draft?.packages.orEmpty(),
+                onToggle = { pkg -> viewModel.updateGroupDraft { it.toggle(pkg) } },
+                onDone = { navController.popBackStack() },
             )
         }
         composable(Routes.LIMITS) {
@@ -284,13 +337,13 @@ private fun MainNavigation(viewModel: MainViewModel, state: AppUiState) {
             AppDetailScreen(
                 blockingActive = enforcement == EnforcementMode.DeviceOwner,
                 onGetMoreTime = {
-                    val reason = (decision as? BlockDecision.Blocked)?.reason ?: BlockReason.LimitReached
-                    viewModel.openBlockScreen(packageName, reason, real = true)
+                    val blocked = decision as? BlockDecision.Blocked
+                    viewModel.openBlockScreen(packageName, blocked?.reason ?: BlockReason.LimitReached, real = true, blocked?.groupName)
                 },
                 decision = decision,
                 onPreviewBlock = {
-                    val reason = (decision as? BlockDecision.Blocked)?.reason ?: BlockReason.LimitReached
-                    viewModel.previewBlockScreen(packageName, reason)
+                    val blocked = decision as? BlockDecision.Blocked
+                    viewModel.previewBlockScreen(packageName, blocked?.reason ?: BlockReason.LimitReached, blocked?.groupName)
                 },
                 detail = detail,
                 onBack = { navController.popBackStack() },
@@ -313,6 +366,9 @@ private object Routes {
     const val ALLOWED = "allowed"
     const val BLOCKING = "blocking"
     const val RESTRICTIONS = "restrictions"
+    const val GROUPS = "groups"
+    const val GROUP_EDITOR = "groups/edit"
+    const val GROUP_APPS = "groups/edit/apps"
     const val ADD_ALLOWED = "allowed/add"
     const val ADD_LIMIT = "limits/add"
     const val LIMIT_EDITOR = "limits/edit/{$ARG_PACKAGE}"

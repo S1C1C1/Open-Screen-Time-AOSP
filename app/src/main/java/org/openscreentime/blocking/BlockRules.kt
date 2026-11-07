@@ -2,6 +2,7 @@ package org.openscreentime.blocking
 
 import org.openscreentime.downtime.DowntimeSchedule
 import org.openscreentime.downtime.DowntimeStatus
+import org.openscreentime.groups.GroupUsage
 import org.openscreentime.limits.AppLimit
 import java.time.Duration
 import java.time.Instant
@@ -50,6 +51,8 @@ sealed interface BlockDecision {
         val reason: BlockReason,
         val blockedUntil: ZonedDateTime,
         val graceAvailable: Boolean,
+        /** The app group whose shared limit was reached, if that's why. */
+        val groupName: String? = null,
     ) : BlockDecision
 }
 
@@ -74,6 +77,7 @@ object BlockRules {
         alwaysAllowed: Boolean,
         override: AppOverride,
         mode: LimitMode,
+        groups: List<GroupUsage> = emptyList(),
     ): BlockDecision {
         if (alwaysAllowed) return BlockDecision.Allowed
 
@@ -83,10 +87,18 @@ object BlockRules {
         // Downtime comes first: it applies even to apps under their limit.
         val blocked = when (val status = downtime.status(now, zone)) {
             is DowntimeStatus.ActiveUntil -> BlockDecision.Blocked(BlockReason.Downtime, status.end, graceAvailable)
-            else -> if (limit != null && limit.isReached(today, usedToday)) {
-                BlockDecision.Blocked(BlockReason.LimitReached, today.plusDays(1).atStartOfDay(zone), graceAvailable)
-            } else {
-                null
+            else -> {
+                // The app's own limit or any of its groups' shared limits:
+                // whichever is reached first blocks it until midnight.
+                val midnight = today.plusDays(1).atStartOfDay(zone)
+                val reachedGroup = groups.firstOrNull { it.isReached(today) }
+                when {
+                    limit != null && limit.isReached(today, usedToday) ->
+                        BlockDecision.Blocked(BlockReason.LimitReached, midnight, graceAvailable)
+                    reachedGroup != null ->
+                        BlockDecision.Blocked(BlockReason.LimitReached, midnight, graceAvailable, reachedGroup.group.name)
+                    else -> null
+                }
             }
         } ?: return BlockDecision.Allowed
 

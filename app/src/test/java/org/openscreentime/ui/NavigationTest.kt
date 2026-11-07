@@ -6,6 +6,7 @@ import androidx.compose.ui.test.onNodeWithContentDescription
 import androidx.compose.ui.test.onNodeWithText
 import androidx.compose.ui.test.performClick
 import androidx.compose.ui.test.performScrollTo
+import androidx.compose.ui.test.performTextInput
 import androidx.test.ext.junit.runners.AndroidJUnit4
 import org.junit.Rule
 import org.junit.Test
@@ -41,6 +42,7 @@ class NavigationTest {
             alwaysAllowedPolicy = testAlwaysAllowedPolicy(),
             overrideRepository = FakeOverrideRepository(),
             deviceOwner = FakeDeviceOwner(),
+            groupRepository = FakeGroupRepository(),
             clock = Clock.fixed(SampleUsage.today.atTime(12, 0).toInstant(ZoneOffset.UTC), ZoneOffset.UTC),
             firstDayOfWeek = SampleUsage.firstDayOfWeek,
             ioDispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
@@ -129,5 +131,28 @@ class NavigationTest {
         composeRule.onNodeWithText("Enter PIN for more time").performClick()
         composeRule.onNodeWithText("15 minutes").performClick()
         composeRule.onNodeWithText("Right now: allowed").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun makeACustomGroupWithASharedLimit() {
+        startApp()
+        composeRule.onNodeWithText("App groups").performScrollTo().performClick()
+        composeRule.onNodeWithText("Set a PIN so only you can change these groups.").assertIsDisplayed()
+
+        composeRule.onNodeWithText("New group").performClick()
+        composeRule.onNodeWithText("Group name").performTextInput("Travel")
+        composeRule.onNodeWithText("Shared daily limit").performClick()
+        composeRule.onNodeWithText("Add or remove apps").performScrollTo().performClick()
+        composeRule.onNodeWithText("Maps").performClick()
+        composeRule.onNodeWithText("Video").performClick()
+        composeRule.onNodeWithText("Done").performClick()
+
+        composeRule.onNodeWithContentDescription("Remove Maps").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Save").performClick()
+
+        // Back on the list, which shows the new group.
+        composeRule.onNodeWithText("2 apps · 1 hr a day").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Back").performClick()
+        composeRule.onNodeWithText("1 group").performScrollTo().assertIsDisplayed()
     }
 }

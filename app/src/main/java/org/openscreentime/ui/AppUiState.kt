@@ -33,6 +33,9 @@ data class AppUiState(
     /** How many apps have a limit. */
     val limitCount: Int = 0,
     val alwaysAllowedCount: Int = 0,
+    val groupCount: Int = 0,
+    /** How many groups have a shared limit. */
+    val groupLimitCount: Int = 0,
 ) {
     val historyLength: HistoryLength
         get() = settings?.historyLength ?: HistoryLength.Default

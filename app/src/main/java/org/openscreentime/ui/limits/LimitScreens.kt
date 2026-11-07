@@ -242,7 +242,7 @@ fun LimitEditorScreen(
 }
 
 @Composable
-private fun SwitchRow(title: String, checked: Boolean, onChange: (Boolean) -> Unit) {
+internal fun SwitchRow(title: String, checked: Boolean, onChange: (Boolean) -> Unit) {
     ListItem(
         modifier = Modifier.toggleable(value = checked, role = Role.Switch, onValueChange = onChange),
         headlineContent = { Text(title) },
@@ -253,7 +253,7 @@ private fun SwitchRow(title: String, checked: Boolean, onChange: (Boolean) -> Un
 
 /** Hours and minutes, changed with − and + buttons in whole hours and 15-minute steps. */
 @Composable
-private fun DurationStepper(title: String, minutes: Long, onChange: (Long) -> Unit) {
+internal fun DurationStepper(title: String, minutes: Long, onChange: (Long) -> Unit) {
     val resources = LocalResources.current
     val min = LimitRules.MIN.toMinutes()
     val max = LimitRules.MAX.toMinutes()

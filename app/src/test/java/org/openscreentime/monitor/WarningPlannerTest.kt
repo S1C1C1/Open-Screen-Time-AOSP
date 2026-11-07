@@ -4,6 +4,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.openscreentime.groups.DailyLimit
+import org.openscreentime.groups.AppGroup
 import org.openscreentime.downtime.DowntimeSchedule
 import org.openscreentime.limits.AppLimit
 import org.openscreentime.usage.AppUsageTime
@@ -91,5 +93,37 @@ class WarningPlannerTest {
         assertFalse(WarningPlanner.hasSomethingToWatch(trackingEnabled = true, limits = emptyList(), downtime = off))
         assertTrue(WarningPlanner.hasSomethingToWatch(trackingEnabled = true, limits = hourLimit, downtime = off))
         assertTrue(WarningPlanner.hasSomethingToWatch(trackingEnabled = true, limits = emptyList(), downtime = on))
+    }
+
+    // --- App groups ---
+
+    private val social = AppGroup(7, "Social", setOf("video", "chat"), DailyLimit(minutes(60)))
+
+    private fun dueForGroup(chat: Duration, video: Duration, alwaysAllowed: Set<String> = emptySet()) = WarningPlanner.due(
+        at("15:00"), zone, listOf(AppUsageTime("video", video), AppUsageTime("chat", chat)), emptyList(),
+        DowntimeSchedule(enabled = false), { it in alwaysAllowed }, emptySet(), groups = listOf(social),
+    )
+
+    @Test
+    fun warnsWhenTheGroupsSharedTotalIsNearlyUsed() {
+        assertTrue(dueForGroup(chat = minutes(30), video = minutes(24)).isEmpty())
+        assertEquals(
+            listOf(Warning.GroupLimitSoon(7, "Social", minutes(4), thursday.toEpochDay())),
+            dueForGroup(chat = minutes(30), video = minutes(26)),
+        )
+        assertTrue(dueForGroup(chat = minutes(30), video = minutes(30)).isEmpty())
+    }
+
+    @Test
+    fun noGroupWarningWhenEveryAppInItIsAlwaysAllowed() {
+        assertTrue(dueForGroup(chat = minutes(30), video = minutes(26), alwaysAllowed = setOf("video", "chat")).isEmpty())
+    }
+
+    @Test
+    fun groupWithALimitIsSomethingToWatch() {
+        assertTrue(WarningPlanner.hasSomethingToWatch(true, emptyList(), DowntimeSchedule(enabled = false), listOf(social)))
+        assertFalse(
+            WarningPlanner.hasSomethingToWatch(true, emptyList(), DowntimeSchedule(enabled = false), listOf(social.copy(limit = null))),
+        )
     }
 }

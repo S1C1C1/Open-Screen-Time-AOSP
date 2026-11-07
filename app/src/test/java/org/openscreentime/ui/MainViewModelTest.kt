@@ -53,6 +53,7 @@ class MainViewModelTest {
     private val downtime = FakeDowntimeRepository()
     private val allowed = FakeAlwaysAllowedRepository()
     private val overrides = FakeOverrideRepository()
+    private val groups = FakeGroupRepository()
     private val deviceOwner = FakeDeviceOwner()
     private val blocker = RecordingAppBlocker()
     private var enforcementChecks = 0
@@ -79,6 +80,7 @@ class MainViewModelTest {
         alwaysAllowedPolicy = testAlwaysAllowedPolicy(),
         overrideRepository = overrides,
         deviceOwner = deviceOwner,
+        groupRepository = groups,
         appBlocker = blocker,
         requestEnforcementCheck = { enforcementChecks++ },
         restrictionsRepository = restrictionsRepository,
@@ -912,6 +914,102 @@ class MainViewModelTest {
         viewModel.removeDeviceOwner()
         viewModel.currentState()
         assertEquals(emptySet<Any>(), applied.last())
+    }
+    // --- App groups ---
+
+    @Test
+    fun newGroupIsSavedWithoutAPin() {
+        val viewModel = newViewModel()
+        viewModel.startNewGroup()
+        viewModel.updateGroupDraft { it.copy(name = " Social ").toggle("chat").toggle("video") }
+        viewModel.updateGroupDraft { it.copy(limitOn = true, weekdayMinutes = 45) }
+        var done = false
+        viewModel.saveGroup { done = true }
+
+        assertTrue(done)
+        assertNull(viewModel.groupDraft.value)
+        val saved = viewModel.groups.value.single()
+        assertEquals("Social", saved.name)
+        assertEquals(setOf("chat", "video"), saved.packages)
+        assertEquals(org.openscreentime.groups.DailyLimit(Duration.ofMinutes(45)), saved.limit)
+        assertEquals(1, viewModel.currentState().groupCount)
+        assertEquals(1, viewModel.currentState().groupLimitCount)
+        assertEquals(1, enforcementChecks)
+    }
+
+    @Test
+    fun aGroupWithoutANameCantBeSaved() {
+        val viewModel = newViewModel()
+        viewModel.startNewGroup(name = "   ")
+        viewModel.saveGroup {}
+        assertTrue(viewModel.groups.value.isEmpty())
+        assertFalse(viewModel.groupDraft.value!!.canSave)
+    }
+
+    @Test
+    fun withAPinChangingOrDeletingAGroupAsksForIt() {
+        runBlocking {
+            groups.save(org.openscreentime.groups.AppGroup(name = "Games", packages = setOf("video")))
+            pinManager.setInitialPin(pin("4826"))
+        }
+        val viewModel = newViewModel()
+        viewModel.currentState()
+        val id = viewModel.groups.value.single().id
+
+        viewModel.editGroup(id)
+        viewModel.updateGroupDraft { it.toggle("chat") }
+        viewModel.saveGroup {}
+        viewModel.currentState()
+        assertEquals(PinFlowKind.Verify, viewModel.pinFlow.ui.value!!.kind)
+        assertEquals(setOf("video"), viewModel.groups.value.single().packages)
+
+        viewModel.enterPin("4826")
+        assertEquals(setOf("video", "chat"), viewModel.groups.value.single().packages)
+
+        // Still unlocked until the app is left, so deleting doesn't ask again.
+        viewModel.editGroup(id)
+        viewModel.deleteGroup {}
+        viewModel.currentState()
+        assertTrue(viewModel.groups.value.isEmpty())
+    }
+
+    @Test
+    fun suggestionsComeFromAppCategories() {
+        installed = listOf(
+            InstalledApp("chat", "Chat", android.content.pm.ApplicationInfo.CATEGORY_SOCIAL),
+            InstalledApp("photos", "Photos", android.content.pm.ApplicationInfo.CATEGORY_SOCIAL),
+        )
+        val viewModel = newViewModel()
+        val suggestions = runBlocking { viewModel.groupSuggestions().first() }
+        assertEquals(listOf(setOf("chat", "photos")), suggestions.map { it.packages })
+    }
+
+    @Test
+    fun blockDecisionIncludesTheGroupsSharedTotal() {
+        usage.usageByDay.value = mapOf(
+            today to listOf(AppUsageTime("video", Duration.ofMinutes(40)), AppUsageTime("chat", Duration.ofMinutes(20))),
+        )
+        runBlocking {
+            groups.save(
+                org.openscreentime.groups.AppGroup(
+                    name = "Fun",
+                    packages = setOf("video", "chat"),
+                    limit = org.openscreentime.groups.DailyLimit(Duration.ofHours(1)),
+                ),
+            )
+        }
+        val viewModel = newViewModel()
+        var result: BlockDecision? = null
+        val job = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main.immediate).launch {
+            viewModel.blockDecision("chat").collect { result = it }
+        }
+        shadowOf(Looper.getMainLooper()).idle()
+        job.cancel()
+        assertEquals("Fun", (result as BlockDecision.Blocked).groupName)
+
+        // Apps in a limited group get the limit badge on the dashboard.
+        accessGranted = true
+        assertTrue(newViewModel().currentState().dashboard!!.apps.first { it.packageName == "chat" }.hasLimit)
     }
 }
 

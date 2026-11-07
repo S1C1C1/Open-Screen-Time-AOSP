@@ -179,6 +179,7 @@
     <string name="block_preview_banner">Preview. In this test build, apps aren\'t really blocked yet.</string>
     <string name="block_this_app">This app</string>
     <string name="block_limit_title">Time limit reached</string>
+    <string name="block_group_limit_body">You\'ve reached today\'s limit for %1$s. %2$s can be used again tomorrow.</string>
     <string name="block_limit_body">You\'ve reached today\'s limit for %1$s. It can be used again tomorrow.</string>
     <string name="block_downtime_title">Downtime</string>
     <string name="block_downtime_body">%1$s isn\'t available until %2$s.</string>
@@ -261,6 +262,46 @@
     <string name="protection_notifications">Its notifications can\'t be turned off.</string>
     <string name="protection_safe_mode">Starting in safe mode is blocked. Factory reset still works.</string>
     <string name="protection_needs_pin">Set a screen time PIN to protect Screen time from being uninstalled, force-stopped or switched off.</string>
+
+    <!-- App groups -->
+    <string name="groups_title">App groups</string>
+    <string name="groups_none">No groups</string>
+    <plurals name="groups_count">
+        <item quantity="one">%1$d group</item>
+        <item quantity="other">%1$d groups</item>
+    </plurals>
+    <string name="groups_intro">Put apps together so they share one daily limit. Time in any of the group\'s apps counts towards it.</string>
+    <string name="groups_pin_reminder">Set a PIN so only you can change these groups.</string>
+    <string name="groups_new">New group</string>
+    <string name="groups_suggested">Suggested groups</string>
+    <string name="groups_suggested_note">Based on the categories apps give themselves. You can change any group after adding it.</string>
+    <plurals name="groups_app_count">
+        <item quantity="one">%1$d app</item>
+        <item quantity="other">%1$d apps</item>
+    </plurals>
+    <string name="groups_summary">%1$s · %2$s</string>
+    <string name="groups_no_limit">No limit</string>
+    <string name="groups_name">Group name</string>
+    <string name="groups_limit_switch">Shared daily limit</string>
+    <string name="groups_limit_note">Time in all the group\'s apps adds up. When it reaches the limit, every app in the group is blocked until midnight. An app\'s own limit still applies too.</string>
+    <string name="groups_apps_header">Apps in this group</string>
+    <string name="groups_no_apps">No apps yet.</string>
+    <string name="groups_add_apps">Add or remove apps</string>
+    <string name="groups_remove_app">Remove %1$s</string>
+    <string name="groups_delete">Delete group</string>
+    <string name="groups_delete_title">Delete %1$s?</string>
+    <string name="groups_delete_body">The apps stay on the phone. Only the group and its limit are removed.</string>
+    <string name="groups_delete_confirm">Delete</string>
+    <string name="groups_cancel">Cancel</string>
+    <string name="groups_choose_apps">Choose apps</string>
+    <string name="groups_done">Done</string>
+    <string name="group_suggest_social">Social</string>
+    <string name="group_suggest_games">Games</string>
+    <string name="group_suggest_video">Video</string>
+    <string name="group_suggest_audio">Music and audio</string>
+    <string name="group_suggest_news">News</string>
+    <string name="group_suggest_photos">Photos</string>
+    <string name="group_suggest_productivity">Productivity</string>
 
     <string name="cancel">Cancel</string>
     <string name="home_privacy_note">All screen time data stays on this phone. This app has no internet access.</string>
