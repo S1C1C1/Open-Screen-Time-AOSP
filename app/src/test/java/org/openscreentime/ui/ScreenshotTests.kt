@@ -36,6 +36,14 @@ import org.openscreentime.ui.pin.PinFlowScreen
 import org.openscreentime.ui.pin.PinFlowUi
 import org.openscreentime.ui.pin.PinMessage
 import org.openscreentime.ui.pin.PinStep
+import org.openscreentime.R
+import org.openscreentime.groups.AppGroup
+import org.openscreentime.groups.DailyLimit
+import org.openscreentime.groups.GroupSuggestion
+import org.openscreentime.ui.groups.GroupAppPickerScreen
+import org.openscreentime.ui.groups.GroupDraft
+import org.openscreentime.ui.groups.GroupEditorScreen
+import org.openscreentime.ui.groups.GroupListScreen
 import org.robolectric.annotation.Config
 import java.time.Duration
 
@@ -402,6 +410,71 @@ class ScreenshotTests {
     fun historyDialog() = capture("history_dialog") {
         HistoryLengthDialog(selected = HistoryLength.FourWeeks, onSelect = {}, onDismiss = {})
     }
+
+    // --- App groups ---
+
+    private val sampleGroups = listOf(
+        AppGroup(1, "Games", setOf("puzzle", "racing", "cards")),
+        AppGroup(2, "Social", setOf("chat", "photos"), DailyLimit(Duration.ofHours(1), weekend = Duration.ofHours(2))),
+    )
+
+    @Composable
+    private fun GroupListFor(pinSet: Boolean) {
+        GroupListScreen(
+            groups = sampleGroups,
+            suggestions = listOf(
+                GroupSuggestion(R.string.group_suggest_social, setOf("chat", "photos")),
+                GroupSuggestion(R.string.group_suggest_video, setOf("video", "tv")),
+            ),
+            pinSet = pinSet,
+            onBack = {},
+            onGroupClick = {},
+            onNewGroup = {},
+            onSuggestionClick = {},
+            onSetPinClick = {},
+        )
+    }
+
+    @Test
+    fun groupList_noPin() = capture("group_list_no_pin") { GroupListFor(pinSet = false) }
+
+    @Test
+    @Config(qualifiers = "+night")
+    fun groupList_dark() = capture("group_list_dark", dark = true) { GroupListFor(pinSet = true) }
+
+    @Composable
+    private fun GroupEditorFor(draft: GroupDraft) {
+        GroupEditorScreen(
+            draft = draft,
+            labelFor = SampleUsage.labels,
+            onChange = {},
+            onChooseApps = {},
+            onBack = {},
+            onSave = {},
+            onDelete = {},
+        )
+    }
+
+    @Test
+    fun groupEditor_new() = capture("group_editor_new") { GroupEditorFor(GroupDraft()) }
+
+    @Test
+    fun groupEditor_withLimit() = capture("group_editor_limit") {
+        GroupEditorFor(GroupDraft(id = 2, name = "Social", packages = setOf("messages", "browser"), limitOn = true, weekdayMinutes = 90))
+    }
+
+    @Test
+    fun groupAppPicker() = capture("group_app_picker") {
+        GroupAppPickerScreen(
+            apps = listOf("Calculator", "Camera", "Chat", "Maps", "Photos").map { InstalledApp(it.lowercase(), it) },
+            selected = setOf("chat", "photos"),
+            onToggle = {},
+            onDone = {},
+        )
+    }
+
+    @Test
+    fun block_groupLimit() = capture("block_group_limit") { BlockFor(blockUi().copy(groupName = "Social")) }
 
     @Composable
     private fun HomeFor(status: HomeStatus, dashboard: Dashboard = SampleUsage.dashboard()) {

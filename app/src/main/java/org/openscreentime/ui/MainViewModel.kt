@@ -17,6 +17,7 @@ import kotlinx.coroutines.flow.SharingStarted
 import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.combine
 import kotlinx.coroutines.flow.first
+import kotlinx.coroutines.flow.flow
 import kotlinx.coroutines.flow.flowOf
 import kotlinx.coroutines.flow.flatMapLatest
 import kotlinx.coroutines.flow.stateIn
@@ -55,7 +56,13 @@ import org.openscreentime.ui.block.BlockScreenUi
 import org.openscreentime.ui.allowed.AllowedAppUi
 import org.openscreentime.downtime.DowntimeSchedule
 import org.openscreentime.downtime.DowntimeStatus
+import org.openscreentime.groups.AppGroup
+import org.openscreentime.groups.GroupRepository
+import org.openscreentime.groups.GroupRules
+import org.openscreentime.groups.GroupSuggestion
+import org.openscreentime.groups.GroupSuggestions
 import org.openscreentime.limits.AppLimit
+import org.openscreentime.ui.groups.GroupDraft
 import org.openscreentime.limits.LimitRepository
 import org.openscreentime.pin.PinManager
 import org.openscreentime.ui.limits.LimitedApp
@@ -92,6 +99,7 @@ class MainViewModel(
     private val alwaysAllowedPolicy: AlwaysAllowedPolicy,
     private val overrideRepository: OverrideRepository,
     private val deviceOwner: DeviceOwner,
+    private val groupRepository: GroupRepository,
     private val appBlocker: AppBlocker = PreviewOnlyAppBlocker(),
     /** Asks the background service to re-check blocking now, e.g. after extra time is given. */
     private val requestEnforcementCheck: () -> Unit = {},
@@ -139,8 +147,15 @@ class MainViewModel(
         usageRepository.usageForDays(week.first(), week.last())
     }
 
-    private val dashboard = combine(weekUsage, today, selectedDay, limitRepository.limits) { usage, day, selected, limits ->
-        buildDashboard(usage, day, selected, firstDayOfWeek, appLabels, limits.map { it.packageName }.toSet())
+    /** Saved app groups, sorted by name. */
+    val groups: StateFlow<List<AppGroup>> = groupRepository.groups
+        .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    private val dashboard = combine(weekUsage, today, selectedDay, limitRepository.limits, groups) { usage, day, selected, limits, groups ->
+        // Apps limited by a group get the same hourglass as apps with their own limit.
+        val limited = limits.map { it.packageName }.toSet() +
+            groups.filter { it.limit != null }.flatMap { it.packages }
+        buildDashboard(usage, day, selected, firstDayOfWeek, appLabels, limited)
     }
 
     /** The always allowed list, with names. */
@@ -162,12 +177,14 @@ class MainViewModel(
         combine(settingsRepository.settings, hasUsageAccess, usageAccessGuideOpen, ::Triple),
         dashboard,
         pinManager.isPinSet,
-        combine(limitedApps, alwaysAllowed, ::Pair),
-    ) { (settings, hasAccess, guideOpen), dashboard, pinSet, (limited, allowed) ->
+        combine(limitedApps, alwaysAllowed, groups, ::Triple),
+    ) { (settings, hasAccess, guideOpen), dashboard, pinSet, (limited, allowed, groups) ->
         AppUiState(
             settings, hasAccess, guideOpen, dashboard, pinSet,
             limitCount = limited.size,
             alwaysAllowedCount = allowed.size,
+            groupCount = groups.size,
+            groupLimitCount = groups.count { it.limit != null },
         )
     }.stateIn(viewModelScope, SharingStarted.Eagerly, AppUiState())
 
@@ -315,6 +332,62 @@ class MainViewModel(
             withContext(ioDispatcher) { alwaysAllowedPolicy.isAlwaysAllowed(packageName, config) }
         }
 
+    // --- App groups ---
+
+    private val draft = MutableStateFlow<GroupDraft?>(null)
+
+    /** The group being created or edited, or null when none is open. */
+    val groupDraft: StateFlow<GroupDraft?> = draft
+
+    /** Ready-made groups from app categories. */
+    fun groupSuggestions(): Flow<List<GroupSuggestion>> = flow {
+        emit(GroupSuggestions.from(withContext(ioDispatcher) { installedApps.launchableApps() }))
+    }
+
+    /** Apps that can be put in a group: every launchable app. */
+    fun appsForGroups(): Flow<List<InstalledApp>> = flow {
+        emit(withContext(ioDispatcher) { installedApps.launchableApps() })
+    }
+
+    /** Starts a new group, empty or filled in from a suggestion. */
+    fun startNewGroup(name: String = "", packages: Set<String> = emptySet()) {
+        draft.value = GroupDraft(name = name, packages = packages)
+    }
+
+    /** Opens a saved group for editing. */
+    fun editGroup(groupId: Long) {
+        draft.value = groups.value.firstOrNull { it.id == groupId }?.let(GroupDraft::from)
+    }
+
+    fun updateGroupDraft(change: (GroupDraft) -> GroupDraft) {
+        draft.update { it?.let(change) }
+    }
+
+    /** Saves the open group, asking for the PIN first when one is set. */
+    fun saveGroup(onDone: () -> Unit) {
+        val current = draft.value ?: return
+        if (!current.canSave) return
+        withPin {
+            groupRepository.save(current.toGroup())
+            draft.value = null
+            now.value = clock.instant()
+            requestEnforcementCheck()
+            onDone()
+        }
+    }
+
+    /** Deletes the open group, asking for the PIN first when one is set. */
+    fun deleteGroup(onDone: () -> Unit) {
+        val current = draft.value ?: return
+        withPin {
+            if (!current.isNew) groupRepository.delete(current.id)
+            draft.value = null
+            now.value = clock.instant()
+            requestEnforcementCheck()
+            onDone()
+        }
+    }
+
     // --- Blocking ---
 
     private val blockScreen = MutableStateFlow<BlockScreenUi?>(null)
@@ -350,22 +423,23 @@ class MainViewModel(
     /** Whether [packageName] would be blocked right now, and why. */
     fun blockDecision(packageName: String): Flow<BlockDecision> = combine(
         combine(today, now) { day, instant -> day to instant }.flatMapLatest { (day, instant) ->
-            usageRepository.usageForDay(day).map { apps -> instant to (apps.firstOrNull { it.packageName == packageName }?.time ?: Duration.ZERO) }
+            usageRepository.usageForDay(day).map { apps -> instant to apps.associate { it.packageName to it.time } }
         },
-        limitRepository.limitFor(packageName),
+        combine(limitRepository.limitFor(packageName), groupRepository.groups, ::Pair),
         downtimeRepository.schedule,
         combine(alwaysAllowedRepository.config, overrideRepository.overrideFor(packageName), ::Pair),
         settingsRepository.settings,
-    ) { (instant, used), limit, schedule, (allowedConfig, override), settings ->
+    ) { (instant, usage), (limit, groups), schedule, (allowedConfig, override), settings ->
         BlockRules.decide(
             now = instant,
             zone = clock.zone,
-            usedToday = used,
+            usedToday = usage[packageName] ?: Duration.ZERO,
             limit = limit,
             downtime = schedule,
             alwaysAllowed = withContext(ioDispatcher) { alwaysAllowedPolicy.isAlwaysAllowed(packageName, allowedConfig) },
             override = override,
             mode = settings.limitMode,
+            groups = GroupRules.limitedGroupsFor(packageName, groups, usage),
         )
     }
 
@@ -374,14 +448,15 @@ class MainViewModel(
      * particular app) blocked for [reason], using the current mode and
      * what's been used today.
      */
-    fun previewBlockScreen(packageName: String?, reason: BlockReason) = openBlockScreen(packageName, reason, real = false)
+    fun previewBlockScreen(packageName: String?, reason: BlockReason, groupName: String? = null) =
+        openBlockScreen(packageName, reason, real = false, groupName = groupName)
 
     /**
      * Opens the block screen for [packageName] blocked for [reason]. A real
      * one (device-owner mode) has no preview banner; its extra time unpauses
      * the app straight away.
      */
-    fun openBlockScreen(packageName: String?, reason: BlockReason, real: Boolean) {
+    fun openBlockScreen(packageName: String?, reason: BlockReason, real: Boolean, groupName: String? = null) {
         viewModelScope.launch {
             val instant = clock.instant()
             now.value = instant
@@ -402,6 +477,7 @@ class MainViewModel(
                 mode = mode,
                 graceAvailable = mode == LimitMode.Grace && override.graceUsedOn != day,
                 isPreview = !real,
+                groupName = groupName.takeIf { reason == BlockReason.LimitReached },
             )
         }
     }
@@ -571,6 +647,7 @@ class MainViewModel(
                     container.alwaysAllowedPolicy,
                     container.overrideRepository,
                     container.deviceOwner,
+                    container.groupRepository,
                     container.appBlocker,
                     { MonitorService.checkNow(appContext) },
                     container.restrictionsRepository,

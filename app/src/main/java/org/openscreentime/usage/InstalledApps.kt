@@ -1,10 +1,16 @@
 package org.openscreentime.usage
 
 import android.content.Intent
+import android.content.pm.ApplicationInfo
 import android.content.pm.PackageManager
 
 /** An app that can be opened from the app drawer. */
-data class InstalledApp(val packageName: String, val label: String)
+data class InstalledApp(
+    val packageName: String,
+    val label: String,
+    /** The category the app's developer chose, e.g. ApplicationInfo.CATEGORY_GAME. */
+    val category: Int = ApplicationInfo.CATEGORY_UNDEFINED,
+)
 
 /** Lists apps a limit can be set for. An interface so tests can supply their own. */
 fun interface InstalledApps {
@@ -23,7 +29,13 @@ class PackageManagerInstalledApps(
             .mapNotNull { it.activityInfo }
             .distinctBy { it.packageName }
             .filter { it.packageName != ownPackage }
-            .map { InstalledApp(it.packageName, it.applicationInfo.loadLabel(packageManager).toString()) }
+            .map {
+                InstalledApp(
+                    packageName = it.packageName,
+                    label = it.applicationInfo.loadLabel(packageManager).toString(),
+                    category = it.applicationInfo.category,
+                )
+            }
             .sortedBy { it.label.lowercase() }
     }
 }

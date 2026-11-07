@@ -69,6 +69,8 @@ fun HomeScreen(
     pinSet: Boolean = false,
     limitCount: Int = 0,
     onLimitsClick: () -> Unit = {},
+    groupCount: Int = 0,
+    onGroupsClick: () -> Unit = {},
     downtimeSummary: String? = null,
     onDowntimeClick: () -> Unit = {},
     alwaysAllowedCount: Int = 0,
@@ -132,6 +134,16 @@ fun HomeScreen(
                     pluralStringResource(R.plurals.limits_count, limitCount, limitCount)
                 },
                 onClick = onLimitsClick,
+            )
+            HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainer)
+            SettingsRow(
+                title = stringResource(R.string.groups_title),
+                summary = if (groupCount == 0) {
+                    stringResource(R.string.groups_none)
+                } else {
+                    pluralStringResource(R.plurals.groups_count, groupCount, groupCount)
+                },
+                onClick = onGroupsClick,
             )
             HorizontalDivider(color = MaterialTheme.colorScheme.surfaceContainer)
             SettingsRow(

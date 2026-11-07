@@ -27,6 +27,8 @@ import org.openscreentime.blocking.overrideDataStore
 import org.openscreentime.downtime.DataStoreDowntimeRepository
 import org.openscreentime.downtime.DowntimeRepository
 import org.openscreentime.downtime.downtimeDataStore
+import org.openscreentime.groups.GroupRepository
+import org.openscreentime.groups.RoomGroupRepository
 import org.openscreentime.limits.LimitRepository
 import org.openscreentime.limits.RoomLimitRepository
 import org.openscreentime.pin.DataStorePinStore
@@ -88,6 +90,8 @@ class AppContainer(context: Context) {
     }
 
     val limitRepository: LimitRepository by lazy { RoomLimitRepository(database.appLimitDao()) }
+
+    val groupRepository: GroupRepository by lazy { RoomGroupRepository(database.appGroupDao()) }
 
     val downtimeRepository: DowntimeRepository = DataStoreDowntimeRepository(appContext.downtimeDataStore)
 

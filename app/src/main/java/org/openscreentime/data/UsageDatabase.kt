@@ -4,13 +4,17 @@ import androidx.room.AutoMigration
 import androidx.room.ColumnInfo
 import androidx.room.Dao
 import androidx.room.Database
+import androidx.room.Embedded
 import androidx.room.Entity
+import androidx.room.ForeignKey
 import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.PrimaryKey
 import androidx.room.Query
+import androidx.room.Relation
 import androidx.room.RoomDatabase
 import androidx.room.Transaction
+import androidx.room.Update
 import androidx.room.Upsert
 import kotlinx.coroutines.flow.Flow
 
@@ -82,18 +86,83 @@ interface AppLimitDao {
     suspend fun delete(packageName: String)
 }
 
+/** A group of apps. Limit minutes are null when the group has no limit. */
+@Entity(tableName = "app_groups")
+data class AppGroupEntity(
+    @PrimaryKey(autoGenerate = true) @ColumnInfo(name = "id") val id: Long = 0,
+    @ColumnInfo(name = "name") val name: String,
+    @ColumnInfo(name = "limit_weekday_minutes") val limitWeekdayMinutes: Int?,
+    @ColumnInfo(name = "limit_weekend_minutes") val limitWeekendMinutes: Int?,
+)
+
+/** One app in one group. Deleting a group deletes its members. */
+@Entity(
+    tableName = "app_group_members",
+    primaryKeys = ["group_id", "package_name"],
+    foreignKeys = [
+        ForeignKey(
+            entity = AppGroupEntity::class,
+            parentColumns = ["id"],
+            childColumns = ["group_id"],
+            onDelete = ForeignKey.CASCADE,
+        ),
+    ],
+)
+data class AppGroupMemberEntity(
+    @ColumnInfo(name = "group_id") val groupId: Long,
+    @ColumnInfo(name = "package_name") val packageName: String,
+)
+
+data class GroupWithMembers(
+    @Embedded val group: AppGroupEntity,
+    @Relation(parentColumn = "id", entityColumn = "group_id")
+    val members: List<AppGroupMemberEntity>,
+)
+
+@Dao
+abstract class AppGroupDao {
+    @Transaction
+    @Query("SELECT * FROM app_groups ORDER BY name COLLATE NOCASE")
+    abstract fun all(): Flow<List<GroupWithMembers>>
+
+    @Insert
+    protected abstract suspend fun insert(group: AppGroupEntity): Long
+
+    @Update
+    protected abstract suspend fun update(group: AppGroupEntity)
+
+    @Query("DELETE FROM app_group_members WHERE group_id = :groupId")
+    protected abstract suspend fun clearMembers(groupId: Long)
+
+    @Insert
+    protected abstract suspend fun insertMembers(members: List<AppGroupMemberEntity>)
+
+    /** Adds or replaces a group and its apps in one step. Returns the group's id. */
+    @Transaction
+    open suspend fun save(group: AppGroupEntity, packages: Set<String>): Long {
+        val id = if (group.id == 0L) insert(group) else group.id.also { update(group) }
+        clearMembers(id)
+        insertMembers(packages.map { AppGroupMemberEntity(id, it) })
+        return id
+    }
+
+    @Query("DELETE FROM app_groups WHERE id = :groupId")
+    abstract suspend fun delete(groupId: Long)
+}
+
 /**
  * The app's database. When its layout changes, raise [version] and add a
  * migration, so saved usage history is kept when the app is updated.
- * Version 2 added app limits.
+ * Version 2 added app limits; version 3 added app groups.
  */
 @Database(
-    entities = [DailyUsageEntity::class, AppLimitEntity::class],
-    version = 2,
+    entities = [DailyUsageEntity::class, AppLimitEntity::class, AppGroupEntity::class, AppGroupMemberEntity::class],
+    version = 3,
     exportSchema = true,
-    autoMigrations = [AutoMigration(from = 1, to = 2)],
+    autoMigrations = [AutoMigration(from = 1, to = 2), AutoMigration(from = 2, to = 3)],
 )
 abstract class UsageDatabase : RoomDatabase() {
     abstract fun dailyUsageDao(): DailyUsageDao
     abstract fun appLimitDao(): AppLimitDao
+    abstract fun appGroupDao(): AppGroupDao
 }

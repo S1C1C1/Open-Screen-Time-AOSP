@@ -2,13 +2,15 @@ package org.openscreentime.blocking
 
 import org.openscreentime.downtime.DowntimeSchedule
 import org.openscreentime.downtime.DowntimeStatus
+import org.openscreentime.groups.AppGroup
+import org.openscreentime.groups.GroupRules
 import org.openscreentime.limits.AppLimit
 import java.time.Duration
 import java.time.Instant
 import java.time.ZoneId
 
 /** An app to show the block screen for, because it's open but shouldn't be. */
-data class BlockRequest(val packageName: String, val reason: BlockReason)
+data class BlockRequest(val packageName: String, val reason: BlockReason, val groupName: String? = null)
 
 /** What enforcement should do right now. */
 data class EnforcementPlan(
@@ -42,6 +44,7 @@ object EnforcementPlanner {
         mode: LimitMode,
         hasUsageAccess: Boolean,
         foregroundApp: String?,
+        groups: List<AppGroup> = emptyList(),
     ): EnforcementPlan {
         val apps = candidates.filterNot(isAlwaysAllowed).toSet()
 
@@ -60,6 +63,7 @@ object EnforcementPlanner {
                 alwaysAllowed = false,
                 override = overrides[pkg] ?: AppOverride(),
                 mode = mode,
+                groups = GroupRules.limitedGroupsFor(pkg, groups, usageToday),
             )
         }
         val blocked = decisions.filterValues { it is BlockDecision.Blocked }
@@ -68,9 +72,9 @@ object EnforcementPlanner {
         val pause = if (mode == LimitMode.Reminder) emptySet() else blocked.keys
         val show = foregroundApp
             ?.let { blocked[it] as? BlockDecision.Blocked }
-            ?.let { BlockRequest(foregroundApp, it.reason) }
+            ?.let { BlockRequest(foregroundApp, it.reason, it.groupName) }
 
-        return EnforcementPlan(pause, show, nextCheck(now, zone, apps, usageToday, limits, downtime, decisions))
+        return EnforcementPlan(pause, show, nextCheck(now, zone, apps, usageToday, limits, groups, downtime, decisions))
     }
 
     /** The soonest moment something could change: a limit running out, extra time ending, downtime or midnight. */
@@ -80,6 +84,7 @@ object EnforcementPlanner {
         apps: Set<String>,
         usageToday: Map<String, Duration>,
         limits: Map<String, AppLimit>,
+        groups: List<AppGroup>,
         downtime: DowntimeSchedule,
         decisions: Map<String, BlockDecision>,
     ): Duration {
@@ -89,6 +94,13 @@ object EnforcementPlanner {
             val limit = limits[pkg] ?: continue
             val left = limit.timeLeft(today, usageToday[pkg] ?: Duration.ZERO)
             if (!left.isZero) waits += left
+        }
+        // A group's shared total runs out at the same moment for all its apps.
+        for (group in groups) {
+            val limit = group.limit ?: continue
+            if (group.packages.none { it in apps }) continue
+            val left = limit.limitOn(today) - GroupRules.usedToday(group, usageToday)
+            if (!left.isNegative && !left.isZero) waits += left
         }
         decisions.values.filterIsInstance<BlockDecision.AllowedUntil>().forEach { waits += Duration.between(now, it.until) }
         when (val status = downtime.status(now, zone)) {

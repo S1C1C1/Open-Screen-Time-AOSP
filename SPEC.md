@@ -53,6 +53,19 @@ It is designed to ship as a **privileged system app** built into a ROM, with Gra
 - When the limit is reached, the app is blocked (see **Limit behavior**).
 - Limits reset at midnight local time.
 
+#### App groups
+
+- Apps can be put into groups so they share the same rules. Users can create any custom groups they want, name them (up to 40 characters), and add or remove apps at any time. An app can be in more than one group.
+- A group can have one **shared daily limit**: time in all the group's apps adds up, and when the total reaches the limit, every app in the group is blocked until midnight. Same 15-minute steps and optional weekend limit as app limits.
+- An app's own limit still applies inside a group. Whichever limit is reached first blocks the app ("strictest wins").
+- Suggested groups (Social, Games, Video, Music and audio, News, Photos, Productivity) come from the category each app declares about itself, read on the phone. A category is only suggested when at least two apps have it. Suggestions only fill in a new group; the user can change them before saving.
+- The block screen names the group: "You've reached today's limit for Social. Chat can be used again tomorrow."
+- The 5-minute warning also works for groups: "5 min left on Social today", once per group per day.
+- Extra time (PIN, one more minute, ignore for 15 minutes) is given per app, as for app limits.
+- Always allowed apps are never blocked by a group, but their time still counts towards the group's total.
+- Same PIN rule as app limits: groups can be made without a PIN (with a reminder to set one); once a PIN is set, saving or deleting a group needs it.
+- App schedules (blocking chosen apps and groups during set times, with Work/School and Bedtime presets) come next and build on groups.
+
 ### 3. Downtime schedule
 
 - Set a recurring time window, such as 9:00 PM–7:00 AM, during which all apps except **always allowed** apps are blocked.
@@ -211,6 +224,7 @@ Testers should confirm each item on a real device or a GrapheneOS emulator build
 - [ ] Usage times in the dashboard roughly match actual use.
 - [ ] A 15-minute limit blocks the app at 15 minutes, in each limit mode.
 - [ ] Limits reset at midnight.
+- [ ] A group's shared limit blocks every app in the group once their total time reaches it.
 - [ ] Downtime blocks all apps except always allowed apps, and ends on schedule.
 - [ ] Emergency calling works during downtime and when every other app is blocked.
 - [ ] The PIN unlocks more time, and wrong PINs are throttled.

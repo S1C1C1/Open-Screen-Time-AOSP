@@ -4,6 +4,9 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.openscreentime.groups.GroupUsage
+import org.openscreentime.groups.DailyLimit
+import org.openscreentime.groups.AppGroup
 import org.openscreentime.downtime.DowntimeSchedule
 import org.openscreentime.downtime.DowntimeWindow
 import org.openscreentime.limits.AppLimit
@@ -146,5 +149,39 @@ class BlockRulesTest {
         // Wednesday night's downtime runs into Thursday morning, but Thursday night is free.
         assertTrue(decide(now = at("06:00"), downtime = schedule, limit = null) is BlockDecision.Blocked)
         assertEquals(BlockDecision.Allowed, decide(now = at("22:00"), downtime = schedule, limit = null))
+    }
+
+    // --- App groups ---
+
+    private val social = AppGroup(1, "Social", setOf("video", "chat"), DailyLimit(minutes(60)))
+
+    private fun decideWithGroup(groupUsed: Duration, appUsed: Duration = Duration.ZERO, limit: AppLimit? = null) =
+        BlockRules.decide(
+            at("15:00"), zone, appUsed, limit, noDowntime, false, AppOverride(), LimitMode.Strict,
+            groups = listOf(GroupUsage(social, social.limit!!, groupUsed)),
+        )
+
+    @Test
+    fun reachingAGroupLimitBlocksUntilMidnightAndNamesTheGroup() {
+        assertEquals(BlockDecision.Allowed, decideWithGroup(minutes(59)))
+        assertEquals(
+            BlockDecision.Blocked(BlockReason.LimitReached, midnight, graceAvailable = false, groupName = "Social"),
+            decideWithGroup(minutes(60)),
+        )
+    }
+
+    @Test
+    fun appsOwnLimitStillAppliesInsideAGroup() {
+        val result = decideWithGroup(groupUsed = minutes(30), appUsed = minutes(20), limit = AppLimit("video", minutes(15)))
+        assertEquals(BlockDecision.Blocked(BlockReason.LimitReached, midnight, graceAvailable = false), result)
+    }
+
+    @Test
+    fun alwaysAllowedAppIsNotBlockedByItsGroup() {
+        val result = BlockRules.decide(
+            at("15:00"), zone, Duration.ZERO, null, noDowntime, true, AppOverride(), LimitMode.Strict,
+            groups = listOf(GroupUsage(social, social.limit!!, minutes(90))),
+        )
+        assertEquals(BlockDecision.Allowed, result)
     }
 }

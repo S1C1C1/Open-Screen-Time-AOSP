@@ -66,6 +66,15 @@ object Notifications {
                     appLabel(warning.packageName),
                 )
             }
+            is Warning.GroupLimitSoon -> {
+                val minutes = (warning.left.seconds + 59) / 60
+                context.resources.getQuantityString(
+                    R.plurals.notify_limit_soon,
+                    minutes.toInt(),
+                    minutes,
+                    warning.groupName,
+                )
+            }
             is Warning.DowntimeSoon -> context.getString(
                 R.string.notify_downtime_soon,
                 formatTime(

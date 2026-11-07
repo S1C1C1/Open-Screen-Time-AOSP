@@ -52,6 +52,8 @@ data class BlockScreenUi(
     val choosingUnlock: Boolean = false,
     /** True in phase 1, where block screens can only be previewed. */
     val isPreview: Boolean = true,
+    /** Set when the app is blocked by a group's shared limit rather than its own. */
+    val groupName: String? = null,
 )
 
 class BlockActions(
@@ -129,10 +131,10 @@ private fun BlockMessage(ui: BlockScreenUi, actions: BlockActions) {
     )
     Spacer(Modifier.height(12.dp))
     Text(
-        if (ui.reason == BlockReason.Downtime) {
-            stringResource(R.string.block_downtime_body, label, until)
-        } else {
-            stringResource(R.string.block_limit_body, label)
+        when {
+            ui.reason == BlockReason.Downtime -> stringResource(R.string.block_downtime_body, label, until)
+            ui.groupName != null -> stringResource(R.string.block_group_limit_body, ui.groupName, label)
+            else -> stringResource(R.string.block_limit_body, label)
         },
         style = MaterialTheme.typography.bodyLarge,
         color = MaterialTheme.colorScheme.onSurfaceVariant,

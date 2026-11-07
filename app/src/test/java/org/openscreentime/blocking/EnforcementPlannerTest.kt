@@ -3,6 +3,8 @@ package org.openscreentime.blocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import org.openscreentime.groups.DailyLimit
+import org.openscreentime.groups.AppGroup
 import org.openscreentime.downtime.DowntimeSchedule
 import org.openscreentime.limits.AppLimit
 import java.time.Duration
@@ -111,5 +113,28 @@ class EnforcementPlannerTest {
     fun waitStaysBetweenFiveAndThirtySeconds() {
         assertEquals(Duration.ofSeconds(30), plan(limits = emptyList()).checkAgainIn)
         assertEquals(Duration.ofSeconds(5), plan(used = mapOf("video" to minutes(60).minusSeconds(1))).checkAgainIn)
+    }
+
+    // --- App groups ---
+
+    private val group = AppGroup(1, "Fun", setOf("video", "maps", "dialer"), DailyLimit(minutes(60)))
+
+    private fun planWithGroup(used: Map<String, Duration>, foreground: String? = null) = EnforcementPlanner.plan(
+        at("15:00"), zone, apps, used, emptyMap(), DowntimeSchedule(enabled = false), { it in allowed }, emptyMap(),
+        LimitMode.Strict, true, foreground, groups = listOf(group),
+    )
+
+    @Test
+    fun groupLimitPausesEveryAppInTheGroupExceptAlwaysAllowed() {
+        assertEquals(emptySet<String>(), planWithGroup(mapOf("video" to minutes(30), "maps" to minutes(29))).pause)
+        val result = planWithGroup(mapOf("video" to minutes(30), "maps" to minutes(30)), foreground = "maps")
+        assertEquals(setOf("video", "maps"), result.pause)
+        assertEquals(BlockRequest("maps", BlockReason.LimitReached, "Fun"), result.showBlockScreen)
+    }
+
+    @Test
+    fun checksAgainWhenTheGroupLimitWillRunOut() {
+        val used = mapOf("video" to minutes(30), "maps" to minutes(30).minusSeconds(12))
+        assertEquals(Duration.ofSeconds(12), planWithGroup(used).checkAgainIn)
     }
 }
