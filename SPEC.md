@@ -81,6 +81,13 @@ It is designed to ship as a **privileged system app** built into a ROM, with Gra
 - Same PIN rule as limits and groups: schedules can be made without a PIN (with a reminder); once a PIN is set, saving, switching off or deleting a schedule needs it.
 - Downtime stays separate from the Bedtime preset: downtime blocks every app except always allowed ones, while a schedule only blocks what it lists.
 
+#### Showing groups and schedules
+
+- Each app's page lists the groups it's in (with the shared limit and time left today) and the schedules that block it, directly or through a group, and whether each is on now. Tapping one opens it.
+- The "Right now" line on an app's page names the group or schedule that's blocking it.
+- While a schedule is on, the App schedules row in Settings says so ("Bedtime on until 6:00 AM").
+- In today's app list, a small clock marks apps a schedule is blocking right now, next to the hourglass for apps with a limit.
+
 ### 3. Downtime schedule
 
 - Set a recurring time window, such as 9:00 PM–7:00 AM, during which all apps except **always allowed** apps are blocked.

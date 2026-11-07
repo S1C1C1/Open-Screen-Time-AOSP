@@ -1,11 +1,19 @@
 package org.openscreentime.ui.dashboard
 
+import org.openscreentime.downtime.DowntimeStatus
+import org.openscreentime.groups.AppGroup
+import org.openscreentime.groups.DailyLimit
+import org.openscreentime.groups.GroupRules
 import org.openscreentime.limits.AppLimit
+import org.openscreentime.schedules.AppSchedule
 import org.openscreentime.usage.AppLabels
 import org.openscreentime.usage.AppUsageTime
 import java.time.DayOfWeek
 import java.time.Duration
+import java.time.Instant
 import java.time.LocalDate
+import java.time.ZoneId
+import java.time.ZonedDateTime
 import java.time.temporal.TemporalAdjusters
 
 /** One app's time, with the name shown to the user. */
@@ -14,6 +22,8 @@ data class AppTime(
     val label: String,
     val time: Duration,
     val hasLimit: Boolean = false,
+    /** A schedule is blocking this app right now. */
+    val scheduledNow: Boolean = false,
 )
 
 /** One bar in a week chart. */
@@ -58,6 +68,8 @@ fun buildDashboard(
     firstDayOfWeek: DayOfWeek,
     labels: AppLabels,
     limitedPackages: Set<String> = emptySet(),
+    /** Apps a schedule is blocking right now; only marked when today is shown. */
+    scheduledNow: Set<String> = emptySet(),
 ): Dashboard {
     val week = weekContaining(today, firstDayOfWeek)
     val shownDay = selectedDay?.takeIf { it in week && !it.isAfter(today) } ?: today
@@ -76,7 +88,13 @@ fun buildDashboard(
         today = today,
         total = shownApps.total(),
         apps = shownApps.map {
-            AppTime(it.packageName, labels.labelFor(it.packageName), it.time, it.packageName in limitedPackages)
+            AppTime(
+                packageName = it.packageName,
+                label = labels.labelFor(it.packageName),
+                time = it.time,
+                hasLimit = it.packageName in limitedPackages,
+                scheduledNow = shownDay == today && it.packageName in scheduledNow,
+            )
         },
     )
 }
@@ -92,6 +110,28 @@ data class AppDetail(
     val limit: AppLimit? = null,
     /** Time left under today's limit, or null without a limit. */
     val timeLeftToday: Duration? = null,
+    /** Groups this app is in. */
+    val groups: List<GroupOnApp> = emptyList(),
+    /** Schedules that block this app, directly or through one of its groups. */
+    val schedules: List<ScheduleOnApp> = emptyList(),
+)
+
+/** A group an app is in, with its shared limit and what's left of it today. */
+data class GroupOnApp(
+    val id: Long,
+    val name: String,
+    val limit: DailyLimit?,
+    /** Null when the group has no limit. */
+    val timeLeftToday: Duration?,
+)
+
+/** A schedule that blocks an app. */
+data class ScheduleOnApp(
+    val schedule: AppSchedule,
+    /** The group the app is blocked through, or null when the schedule lists the app itself. */
+    val viaGroup: String?,
+    /** When the schedule ends, if it's on right now. */
+    val activeUntil: ZonedDateTime?,
 )
 
 fun buildAppDetail(
@@ -101,6 +141,10 @@ fun buildAppDetail(
     firstDayOfWeek: DayOfWeek,
     labels: AppLabels,
     limit: AppLimit? = null,
+    groups: List<AppGroup> = emptyList(),
+    schedules: List<AppSchedule> = emptyList(),
+    now: Instant = Instant.EPOCH,
+    zone: ZoneId = ZoneId.systemDefault(),
 ): AppDetail {
     fun timeOn(day: LocalDate): Duration =
         usageByDay[day]?.firstOrNull { it.packageName == packageName }?.time ?: Duration.ZERO
@@ -124,5 +168,30 @@ fun buildAppDetail(
         dailyAverage = totalSoFar.dividedBy(daysSoFar.size.toLong()),
         limit = limit,
         timeLeftToday = limit?.timeLeft(today, timeOn(today)),
+        groups = groupsOn(packageName, groups, usageByDay[today].orEmpty(), today),
+        schedules = schedulesOn(packageName, groups, schedules, now, zone),
     )
+}
+
+private fun groupsOn(packageName: String, groups: List<AppGroup>, usageToday: List<AppUsageTime>, today: LocalDate): List<GroupOnApp> {
+    val used = usageToday.associate { it.packageName to it.time }
+    return groups.filter { packageName in it.packages }.map { group ->
+        val left = group.limit?.let { limit ->
+            (limit.limitOn(today) - GroupRules.usedToday(group, used)).coerceAtLeast(Duration.ZERO)
+        }
+        GroupOnApp(group.id, group.name, group.limit, left)
+    }
+}
+
+private fun schedulesOn(
+    packageName: String,
+    groups: List<AppGroup>,
+    schedules: List<AppSchedule>,
+    now: Instant,
+    zone: ZoneId,
+): List<ScheduleOnApp> = schedules.mapNotNull { schedule ->
+    val viaGroup = groups.firstOrNull { it.id in schedule.groupIds && packageName in it.packages }?.name
+    if (packageName !in schedule.packages && viaGroup == null) return@mapNotNull null
+    val active = schedule.status(now, zone) as? DowntimeStatus.ActiveUntil
+    ScheduleOnApp(schedule, viaGroup.takeIf { packageName !in schedule.packages }, active?.end)
 }

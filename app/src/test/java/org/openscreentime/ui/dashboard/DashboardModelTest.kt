@@ -4,6 +4,13 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.openscreentime.downtime.DowntimeWindow
+import org.openscreentime.groups.AppGroup
+import org.openscreentime.groups.DailyLimit
+import org.openscreentime.schedules.AppSchedule
+import org.openscreentime.schedules.SchedulePreset
+import java.time.LocalTime
+import java.time.ZoneOffset
 import org.openscreentime.ui.components.chartScaleMax
 import org.openscreentime.usage.AppUsageTime
 import java.time.DayOfWeek
@@ -153,5 +160,70 @@ class DashboardModelTest {
         assertEquals(Duration.ofHours(1), chartScaleMax(minutes(60)))
         assertEquals(Duration.ofHours(2), chartScaleMax(minutes(61)))
         assertEquals(Duration.ofHours(4), chartScaleMax(minutes(197)))
+    }
+
+    // --- Groups and schedules on an app's page ---
+
+    private val social = AppGroup(1, "Social", setOf("chat", "photos"), DailyLimit(minutes(60)))
+    private val reading = AppGroup(2, "Reading", setOf("chat"))
+    private val work = AppSchedule(
+        id = 5,
+        name = "Work",
+        days = SchedulePreset.WorkSchool.days,
+        window = SchedulePreset.WorkSchool.window,
+        groupIds = setOf(1),
+    )
+    private val bedtime = AppSchedule(
+        id = 6,
+        name = "Bedtime",
+        days = SchedulePreset.Bedtime.days,
+        window = SchedulePreset.Bedtime.window,
+        packages = setOf("chat"),
+    )
+    private val noon = today.atTime(12, 0).toInstant(ZoneOffset.UTC)
+
+    private fun chatDetail(schedules: List<AppSchedule> = listOf(work, bedtime)) = buildAppDetail(
+        "chat",
+        mapOf(today to listOf(app("chat", 25), app("photos", 20))),
+        today,
+        DayOfWeek.SUNDAY,
+        labels,
+        groups = listOf(social, reading, AppGroup(3, "Games", setOf("puzzle"))),
+        schedules = schedules,
+        now = noon,
+        zone = ZoneOffset.UTC,
+    )
+
+    @Test
+    fun appPageListsItsGroupsWithSharedTimeLeft() {
+        assertEquals(
+            listOf(
+                GroupOnApp(1, "Social", DailyLimit(minutes(60)), minutes(15)),
+                GroupOnApp(2, "Reading", null, null),
+            ),
+            chatDetail().groups,
+        )
+    }
+
+    @Test
+    fun appPageListsSchedulesThatBlockItDirectlyOrThroughAGroup() {
+        assertEquals(
+            listOf(
+                ScheduleOnApp(work, viaGroup = "Social", activeUntil = today.atTime(17, 0).atZone(ZoneOffset.UTC)),
+                ScheduleOnApp(bedtime, viaGroup = null, activeUntil = null),
+            ),
+            chatDetail().schedules,
+        )
+        val other = AppSchedule(7, "Other", days = setOf(DayOfWeek.MONDAY), window = DowntimeWindow(LocalTime.of(9, 0), LocalTime.of(10, 0)))
+        assertTrue(chatDetail(listOf(other)).schedules.isEmpty())
+    }
+
+    @Test
+    fun scheduleBadgeOnlyShowsForToday() {
+        val usage = mapOf(today to listOf(app("chat", 5)), today.minusDays(1) to listOf(app("chat", 5)))
+        assertTrue(buildDashboard(usage, today, null, DayOfWeek.SUNDAY, labels, scheduledNow = setOf("chat")).apps.single().scheduledNow)
+        assertFalse(
+            buildDashboard(usage, today, today.minusDays(1), DayOfWeek.SUNDAY, labels, scheduledNow = setOf("chat")).apps.single().scheduledNow,
+        )
     }
 }

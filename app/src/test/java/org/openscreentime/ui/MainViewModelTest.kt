@@ -1112,6 +1112,37 @@ class MainViewModelTest {
         assertEquals("Work", ui.ruleName)
         assertEquals(today.atTime(17, 0).atZone(zone), ui.blockedUntil)
     }
+    // --- Groups and schedules shown on screens ---
+
+    @Test
+    fun activeSchedulesAndDashboardBadgeFollowTheClock() {
+        // The test clock is Thursday 12:00: Work is on, Bedtime isn't.
+        accessGranted = true
+        usage.usageByDay.value = mapOf(today to listOf(AppUsageTime("chat", Duration.ofMinutes(5)), AppUsageTime("mail", Duration.ofMinutes(5))))
+        runBlocking {
+            schedules.save(
+                org.openscreentime.schedules.AppSchedule(
+                    name = "Work",
+                    days = org.openscreentime.schedules.SchedulePreset.WorkSchool.days,
+                    window = org.openscreentime.schedules.SchedulePreset.WorkSchool.window,
+                    packages = setOf("chat"),
+                ),
+            )
+            schedules.save(
+                org.openscreentime.schedules.AppSchedule(
+                    name = "Bedtime",
+                    days = org.openscreentime.schedules.SchedulePreset.Bedtime.days,
+                    window = org.openscreentime.schedules.SchedulePreset.Bedtime.window,
+                    packages = setOf("mail"),
+                ),
+            )
+        }
+        val viewModel = newViewModel()
+        val apps = viewModel.currentState().dashboard!!.apps
+        assertTrue(apps.first { it.packageName == "chat" }.scheduledNow)
+        assertFalse(apps.first { it.packageName == "mail" }.scheduledNow)
+        assertEquals(listOf("Work"), viewModel.activeSchedules.value.map { it.name })
+    }
 }
 
 /** Records what blocking was asked for. */

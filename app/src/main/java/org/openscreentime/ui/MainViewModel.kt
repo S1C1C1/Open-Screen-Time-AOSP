@@ -63,6 +63,7 @@ import org.openscreentime.groups.GroupSuggestion
 import org.openscreentime.groups.GroupSuggestions
 import org.openscreentime.limits.AppLimit
 import org.openscreentime.ui.groups.GroupDraft
+import org.openscreentime.schedules.ActiveSchedule
 import org.openscreentime.schedules.AppSchedule
 import org.openscreentime.schedules.SchedulePreset
 import org.openscreentime.schedules.ScheduleRepository
@@ -161,11 +162,27 @@ class MainViewModel(
     val schedules: StateFlow<List<AppSchedule>> = scheduleRepository.schedules
         .stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
 
-    private val dashboard = combine(weekUsage, today, selectedDay, limitRepository.limits, groups) { usage, day, selected, limits, groups ->
+    /** Schedules that are on right now, soonest to end first. */
+    val activeSchedules: StateFlow<List<ActiveSchedule>> = combine(schedules, now) { schedules, instant ->
+        schedules.mapNotNull { schedule ->
+            (schedule.status(instant, clock.zone) as? DowntimeStatus.ActiveUntil)?.let { ActiveSchedule(schedule.name, it.end) }
+        }.sortedBy { it.end.toInstant() }
+    }.stateIn(viewModelScope, SharingStarted.Eagerly, emptyList())
+
+    /** Which apps get a badge on the dashboard: those with a limit, and those a schedule blocks now. */
+    private val dashboardBadges = combine(limitRepository.limits, groups, schedules, now) { limits, groups, schedules, instant ->
         // Apps limited by a group get the same hourglass as apps with their own limit.
         val limited = limits.map { it.packageName }.toSet() +
             groups.filter { it.limit != null }.flatMap { it.packages }
-        buildDashboard(usage, day, selected, firstDayOfWeek, appLabels, limited)
+        val scheduled = schedules
+            .filter { it.status(instant, clock.zone) is DowntimeStatus.ActiveUntil }
+            .flatMap { it.blockedPackages(groups) }
+            .toSet()
+        limited to scheduled
+    }
+
+    private val dashboard = combine(weekUsage, today, selectedDay, dashboardBadges) { usage, day, selected, (limited, scheduled) ->
+        buildDashboard(usage, day, selected, firstDayOfWeek, appLabels, limited, scheduled)
     }
 
     /** The always allowed list, with names. */
@@ -296,8 +313,9 @@ class MainViewModel(
 
     /** One app's usage this week, for its detail screen. */
     fun appDetail(packageName: String): Flow<AppDetail> =
-        combine(weekUsage, today, limitRepository.limitFor(packageName)) { usage, day, limit ->
-            buildAppDetail(packageName, usage, day, firstDayOfWeek, appLabels, limit)
+        combine(weekUsage, today, limitRepository.limitFor(packageName), combine(groups, schedules, ::Pair), now) {
+                usage, day, limit, (groups, schedules), instant ->
+            buildAppDetail(packageName, usage, day, firstDayOfWeek, appLabels, limit, groups, schedules, instant, clock.zone)
         }
 
     /** One app's saved limit, for the limit editor. */

@@ -12,6 +12,7 @@ import org.openscreentime.data.HistoryLength
 import org.openscreentime.ui.appdetail.AppDetailScreen
 import org.openscreentime.ui.dashboard.Dashboard
 import org.openscreentime.ui.dashboard.buildAppDetail
+import org.openscreentime.ui.dashboard.buildDashboard
 import org.openscreentime.ui.home.HistoryLengthDialog
 import org.openscreentime.ui.home.HomeScreen
 import org.openscreentime.ui.theme.OpenScreenTimeTheme
@@ -554,6 +555,65 @@ class ScreenshotTests {
                 ruleName = "Work hours",
                 blockedUntil = SampleUsage.today.atTime(17, 0).atZone(java.time.ZoneOffset.UTC),
             ),
+        )
+    }
+
+    // --- Groups and schedules on screens ---
+
+    @Test
+    @Config(qualifiers = "w411dp-h1200dp-xxhdpi")
+    fun appDetail_groupsAndSchedules() = capture("app_detail_groups_schedules") {
+        val social = AppGroup(2, "Social", setOf("browser", "messages"), DailyLimit(Duration.ofHours(2)))
+        AppDetailScreen(
+            detail = buildAppDetail(
+                "browser",
+                SampleUsage.usageByDay,
+                SampleUsage.today,
+                SampleUsage.firstDayOfWeek,
+                SampleUsage.labels,
+                groups = listOf(social, AppGroup(3, "Reading", setOf("browser"))),
+                schedules = listOf(
+                    AppSchedule(1, "Work hours", days = SchedulePreset.WorkSchool.days, window = SchedulePreset.WorkSchool.window, groupIds = setOf(2)),
+                    AppSchedule(4, "Bedtime", days = SchedulePreset.Bedtime.days, window = SchedulePreset.Bedtime.window, packages = setOf("browser")),
+                ),
+                now = SampleUsage.today.atTime(10, 0).toInstant(java.time.ZoneOffset.UTC),
+                zone = java.time.ZoneOffset.UTC,
+            ),
+            onBack = {},
+            decision = org.openscreentime.blocking.BlockDecision.Blocked(
+                org.openscreentime.blocking.BlockReason.Scheduled,
+                SampleUsage.today.atTime(17, 0).atZone(java.time.ZoneOffset.UTC),
+                graceAvailable = false,
+                ruleName = "Work hours",
+            ),
+        )
+    }
+
+    @Test
+    @Config(qualifiers = "w411dp-h1900dp-xxhdpi")
+    fun dashboard_scheduleOn() = capture("dashboard_schedule_on") {
+        HomeScreen(
+            limitCount = 2,
+            downtimeSummary = "Starts today at 9:00 PM",
+            alwaysAllowedCount = 3,
+            groupCount = 2,
+            scheduleCount = 2,
+            scheduleOnCount = 2,
+            activeScheduleSummary = "Work hours on until 5:00 PM",
+            status = HomeStatus.Ready,
+            dashboard = buildDashboard(
+                SampleUsage.usageByDay,
+                SampleUsage.today,
+                null,
+                SampleUsage.firstDayOfWeek,
+                SampleUsage.labels,
+                limitedPackages = setOf("browser", "video"),
+                scheduledNow = setOf("video", "messages"),
+            ),
+            historyLength = HistoryLength.FourWeeks,
+            onTrackingChange = {},
+            onAllowUsageAccess = {},
+            onHistoryLengthChange = {},
         )
     }
 
