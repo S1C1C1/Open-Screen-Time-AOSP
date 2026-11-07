@@ -3,6 +3,8 @@ package org.openscreentime.blocking
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNull
 import org.junit.Test
+import org.openscreentime.schedules.SchedulePreset
+import org.openscreentime.schedules.AppSchedule
 import org.openscreentime.groups.DailyLimit
 import org.openscreentime.groups.AppGroup
 import org.openscreentime.downtime.DowntimeSchedule
@@ -136,5 +138,34 @@ class EnforcementPlannerTest {
     fun checksAgainWhenTheGroupLimitWillRunOut() {
         val used = mapOf("video" to minutes(30), "maps" to minutes(30).minusSeconds(12))
         assertEquals(Duration.ofSeconds(12), planWithGroup(used).checkAgainIn)
+    }
+
+    // --- Schedules ---
+
+    private val work = AppSchedule(
+        id = 1,
+        name = "Work",
+        days = SchedulePreset.WorkSchool.days,
+        window = SchedulePreset.WorkSchool.window,
+        packages = setOf("video", "dialer"),
+    )
+
+    private fun planWithSchedule(now: Instant, foreground: String? = null) = EnforcementPlanner.plan(
+        now, zone, apps, emptyMap(), emptyMap(), DowntimeSchedule(enabled = false), { it in allowed }, emptyMap(),
+        LimitMode.Strict, true, foreground, schedules = listOf(work),
+    )
+
+    @Test
+    fun aSchedulePausesItsAppsExceptAlwaysAllowedOnes() {
+        val result = planWithSchedule(at("10:00"), foreground = "video")
+        assertEquals(setOf("video"), result.pause)
+        assertEquals(BlockRequest("video", BlockReason.Scheduled, "Work"), result.showBlockScreen)
+        assertEquals(emptySet<String>(), planWithSchedule(at("18:00")).pause)
+    }
+
+    @Test
+    fun checksAgainWhenAScheduleStartsOrEnds() {
+        assertEquals(Duration.ofSeconds(7), planWithSchedule(at("07:59:53")).checkAgainIn)
+        assertEquals(Duration.ofSeconds(9), planWithSchedule(at("16:59:51")).checkAgainIn)
     }
 }

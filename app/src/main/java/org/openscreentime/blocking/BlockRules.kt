@@ -4,6 +4,7 @@ import org.openscreentime.downtime.DowntimeSchedule
 import org.openscreentime.downtime.DowntimeStatus
 import org.openscreentime.groups.GroupUsage
 import org.openscreentime.limits.AppLimit
+import org.openscreentime.schedules.ActiveSchedule
 import java.time.Duration
 import java.time.Instant
 import java.time.LocalDate
@@ -27,7 +28,7 @@ enum class LimitMode {
     }
 }
 
-enum class BlockReason { LimitReached, Downtime }
+enum class BlockReason { LimitReached, Downtime, Scheduled }
 
 /** Extra time given to one app: by the PIN, "one more minute", or ignoring a reminder. */
 data class AppOverride(
@@ -51,8 +52,11 @@ sealed interface BlockDecision {
         val reason: BlockReason,
         val blockedUntil: ZonedDateTime,
         val graceAvailable: Boolean,
-        /** The app group whose shared limit was reached, if that's why. */
-        val groupName: String? = null,
+        /**
+         * What caused it, to show on the block screen: the app group whose
+         * shared limit was reached, or the schedule that's on.
+         */
+        val ruleName: String? = null,
     ) : BlockDecision
 }
 
@@ -78,6 +82,8 @@ object BlockRules {
         override: AppOverride,
         mode: LimitMode,
         groups: List<GroupUsage> = emptyList(),
+        /** Schedules blocking this app right now. */
+        schedules: List<ActiveSchedule> = emptyList(),
     ): BlockDecision {
         if (alwaysAllowed) return BlockDecision.Allowed
 
@@ -85,9 +91,14 @@ object BlockRules {
         val graceAvailable = mode == LimitMode.Grace && override.graceUsedOn != today
 
         // Downtime comes first: it applies even to apps under their limit.
+        // Then schedules, then limits. If several schedules are on, the app
+        // stays blocked until the last of them ends.
+        val schedule = schedules.maxByOrNull { it.end.toInstant() }
         val blocked = when (val status = downtime.status(now, zone)) {
             is DowntimeStatus.ActiveUntil -> BlockDecision.Blocked(BlockReason.Downtime, status.end, graceAvailable)
-            else -> {
+            else -> if (schedule != null) {
+                BlockDecision.Blocked(BlockReason.Scheduled, schedule.end, graceAvailable, schedule.name)
+            } else {
                 // The app's own limit or any of its groups' shared limits:
                 // whichever is reached first blocks it until midnight.
                 val midnight = today.plusDays(1).atStartOfDay(zone)
@@ -110,7 +121,7 @@ object BlockRules {
     fun unlockEnd(now: Instant, duration: UnlockDuration, blocked: BlockDecision.Blocked): Instant = when (duration) {
         UnlockDuration.FifteenMinutes -> now + Duration.ofMinutes(15)
         UnlockDuration.OneHour -> now + Duration.ofHours(1)
-        // For a limit this is midnight; for downtime, when downtime ends.
+        // For a limit this is midnight; for downtime or a schedule, when it ends.
         UnlockDuration.RestOfDay -> blocked.blockedUntil.toInstant()
     }
 }

@@ -44,6 +44,12 @@ import org.openscreentime.ui.groups.GroupAppPickerScreen
 import org.openscreentime.ui.groups.GroupDraft
 import org.openscreentime.ui.groups.GroupEditorScreen
 import org.openscreentime.ui.groups.GroupListScreen
+import org.openscreentime.schedules.AppSchedule
+import org.openscreentime.schedules.SchedulePreset
+import org.openscreentime.ui.schedules.ScheduleDraft
+import org.openscreentime.ui.schedules.ScheduleEditorScreen
+import org.openscreentime.ui.schedules.ScheduleListScreen
+import org.openscreentime.ui.schedules.ScheduleTargetPickerScreen
 import org.robolectric.annotation.Config
 import java.time.Duration
 
@@ -474,7 +480,82 @@ class ScreenshotTests {
     }
 
     @Test
-    fun block_groupLimit() = capture("block_group_limit") { BlockFor(blockUi().copy(groupName = "Social")) }
+    fun block_groupLimit() = capture("block_group_limit") { BlockFor(blockUi().copy(ruleName = "Social")) }
+
+    // --- Schedules ---
+
+    @Composable
+    private fun ScheduleListFor(schedules: List<AppSchedule>, pinSet: Boolean) {
+        ScheduleListScreen(
+            schedules = schedules,
+            daysInOrder = SampleUsage.daysInOrder,
+            pinSet = pinSet,
+            onBack = {},
+            onScheduleClick = {},
+            onNewSchedule = {},
+            onPresetClick = { _, _ -> },
+            onSetPinClick = {},
+        )
+    }
+
+    @Test
+    fun scheduleList_empty() = capture("schedule_list_empty") { ScheduleListFor(emptyList(), pinSet = false) }
+
+    @Test
+    @Config(qualifiers = "+night")
+    fun scheduleList_dark() = capture("schedule_list_dark", dark = true) {
+        ScheduleListFor(
+            listOf(
+                AppSchedule(1, "Bedtime", days = SchedulePreset.Bedtime.days, window = SchedulePreset.Bedtime.window),
+                AppSchedule(
+                    2,
+                    "Homework",
+                    enabled = false,
+                    days = setOf(java.time.DayOfWeek.MONDAY, java.time.DayOfWeek.WEDNESDAY),
+                    window = org.openscreentime.downtime.DowntimeWindow(java.time.LocalTime.of(16, 0), java.time.LocalTime.of(18, 30)),
+                ),
+            ),
+            pinSet = true,
+        )
+    }
+
+    @Test
+    fun scheduleEditor_bedtime() = capture("schedule_editor_bedtime") {
+        ScheduleEditorScreen(
+            draft = ScheduleDraft.from(SchedulePreset.Bedtime, "Bedtime").copy(id = 1, packages = setOf("browser"), groupIds = setOf(2)),
+            daysInOrder = SampleUsage.daysInOrder,
+            groups = sampleGroups,
+            labelFor = SampleUsage.labels,
+            onChange = {},
+            onChooseTargets = {},
+            onBack = {},
+            onSave = {},
+            onDelete = {},
+        )
+    }
+
+    @Test
+    fun scheduleTargetPicker() = capture("schedule_target_picker") {
+        ScheduleTargetPickerScreen(
+            groups = sampleGroups,
+            apps = listOf("Calculator", "Camera", "Chat", "Maps").map { InstalledApp(it.lowercase(), it) },
+            selectedGroups = setOf(2),
+            selectedApps = setOf("maps"),
+            onToggleGroup = {},
+            onToggleApp = {},
+            onDone = {},
+        )
+    }
+
+    @Test
+    fun block_schedule() = capture("block_schedule") {
+        BlockFor(
+            blockUi(reason = org.openscreentime.blocking.BlockReason.Scheduled).copy(
+                ruleName = "Work hours",
+                blockedUntil = SampleUsage.today.atTime(17, 0).atZone(java.time.ZoneOffset.UTC),
+            ),
+        )
+    }
 
     @Composable
     private fun HomeFor(status: HomeStatus, dashboard: Dashboard = SampleUsage.dashboard()) {

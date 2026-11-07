@@ -12,6 +12,7 @@ object SampleUsage {
     // Thursday 5 November 2026, in a week starting on Sunday.
     val today: LocalDate = LocalDate.of(2026, 11, 5)
     val firstDayOfWeek: DayOfWeek = DayOfWeek.SUNDAY
+    val daysInOrder: List<DayOfWeek> = (0L until 7L).map { firstDayOfWeek.plus(it) }
 
     private val names = mapOf(
         "browser" to "Browser",

@@ -105,6 +105,7 @@ class MonitorService : Service() {
         val limits = container.limitRepository.limits.first()
         val downtime = container.downtimeRepository.schedule.first()
         val groups = container.groupRepository.groups.first()
+        val schedules = container.scheduleRepository.schedules.first()
 
         // Self-protection (cheap and idempotent): makes sure it's in place after a restart or update.
         container.selfProtection.update(container.pinManager.isPinSet.first())
@@ -114,7 +115,7 @@ class MonitorService : Service() {
         container.restrictionApplier.apply(RestrictionRules.active(restrictions, container.deviceClock))
         val liftEnds = RestrictionRules.nextLiftEnd(restrictions, container.deviceClock)?.plusSeconds(1)
 
-        if (!WarningPlanner.hasSomethingToWatch(settings.trackingEnabled, limits, downtime, groups)) {
+        if (!WarningPlanner.hasSomethingToWatch(settings.trackingEnabled, limits, downtime, groups, schedules)) {
             // Nothing to enforce: make sure nothing stays paused.
             container.appBlocker.setBlockedApps(emptySet())
             // Keep running only to end a restriction lift on time.
@@ -145,13 +146,14 @@ class MonitorService : Service() {
                 isAlwaysAllowed = isAllowed,
                 alreadyShown = container.shownWarningsStore.shown(),
                 groups = groups,
+                schedules = schedules,
             )
             warnings.forEach { Notifications.showWarning(this, it, container.appLabels::labelFor) }
             container.shownWarningsStore.add(warnings.map { it.key }, today.toEpochDay())
         }
 
         if (container.deviceOwner.mode() != EnforcementMode.DeviceOwner) return CHECK_EVERY
-        val wait = enforce(container, now, clock, usageToday.associate { it.packageName to it.time }, limits, groups, downtime, hasAccess, isAllowed)
+        val wait = enforce(container, now, clock, usageToday.associate { it.packageName to it.time }, limits, groups, schedules, downtime, hasAccess, isAllowed)
         return if (liftEnds != null) minOf(wait, liftEnds) else wait
     }
 
@@ -163,12 +165,14 @@ class MonitorService : Service() {
         usageToday: Map<String, Duration>,
         limits: List<org.openscreentime.limits.AppLimit>,
         groups: List<org.openscreentime.groups.AppGroup>,
+        schedules: List<org.openscreentime.schedules.AppSchedule>,
         downtime: org.openscreentime.downtime.DowntimeSchedule,
         hasAccess: Boolean,
         isAllowed: (String) -> Boolean,
     ): Duration {
         val candidates = container.installedApps.launchableApps().map { it.packageName }.toSet() +
-            limits.map { it.packageName } + groups.filter { it.limit != null }.flatMap { it.packages }
+            limits.map { it.packageName } + groups.filter { it.limit != null }.flatMap { it.packages } +
+            schedules.flatMap { it.blockedPackages(groups) }
         val overrides = candidates.associateWith { container.overrideRepository.overrideFor(it).first() }
         val foreground = if (hasAccess) {
             foregroundApp(container.usageEventSource.events(now - RECENT_EVENTS, now))
@@ -188,6 +192,7 @@ class MonitorService : Service() {
             hasUsageAccess = hasAccess,
             foregroundApp = foreground,
             groups = groups,
+            schedules = schedules,
         )
         container.appBlocker.setBlockedApps(plan.pause)
         plan.showBlockScreen?.let { request -> showBlockScreen(request, now) }
@@ -200,7 +205,7 @@ class MonitorService : Service() {
         if (previous != null && previous.first == request && Duration.between(previous.second, now) < SHOW_AGAIN_AFTER) return
         lastShown = request to now
         // Allowed from the background because this app is the device owner.
-        startActivity(BlockActivity.intent(this, request.packageName, request.reason, request.groupName))
+        startActivity(BlockActivity.intent(this, request.packageName, request.reason, request.ruleName))
     }
 
     private suspend fun awaitScreenOn() = suspendCancellableCoroutine { continuation ->

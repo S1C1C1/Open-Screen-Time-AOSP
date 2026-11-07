@@ -54,6 +54,7 @@ class MainViewModelTest {
     private val allowed = FakeAlwaysAllowedRepository()
     private val overrides = FakeOverrideRepository()
     private val groups = FakeGroupRepository()
+    private val schedules = FakeScheduleRepository()
     private val deviceOwner = FakeDeviceOwner()
     private val blocker = RecordingAppBlocker()
     private var enforcementChecks = 0
@@ -81,6 +82,7 @@ class MainViewModelTest {
         overrideRepository = overrides,
         deviceOwner = deviceOwner,
         groupRepository = groups,
+        scheduleRepository = schedules,
         appBlocker = blocker,
         requestEnforcementCheck = { enforcementChecks++ },
         restrictionsRepository = restrictionsRepository,
@@ -1005,11 +1007,110 @@ class MainViewModelTest {
         }
         shadowOf(Looper.getMainLooper()).idle()
         job.cancel()
-        assertEquals("Fun", (result as BlockDecision.Blocked).groupName)
+        assertEquals("Fun", (result as BlockDecision.Blocked).ruleName)
 
         // Apps in a limited group get the limit badge on the dashboard.
         accessGranted = true
         assertTrue(newViewModel().currentState().dashboard!!.apps.first { it.packageName == "chat" }.hasLimit)
+    }
+    // --- Schedules ---
+
+    @Test
+    fun presetFillsTheDraftAndSavesWithoutAPin() {
+        val viewModel = newViewModel()
+        viewModel.startNewSchedule(org.openscreentime.schedules.SchedulePreset.Bedtime, "Bedtime")
+        val draft = viewModel.scheduleDraft.value!!
+        assertEquals(java.time.LocalTime.of(21, 0), draft.start)
+        assertEquals(java.time.LocalTime.of(6, 0), draft.end)
+        assertEquals(DayOfWeek.entries.toSet(), draft.days)
+
+        viewModel.updateScheduleDraft { it.toggleApp("video").toggleGroup(4) }
+        var done = false
+        viewModel.saveSchedule { done = true }
+
+        assertTrue(done)
+        val saved = viewModel.schedules.value.single()
+        assertEquals("Bedtime", saved.name)
+        assertEquals(setOf("video"), saved.packages)
+        assertEquals(setOf(4L), saved.groupIds)
+        assertEquals(1, viewModel.currentState().scheduleOnCount)
+        assertEquals(1, enforcementChecks)
+    }
+
+    @Test
+    fun aScheduleNeedsANameAndADay() {
+        val viewModel = newViewModel()
+        viewModel.startNewSchedule(name = "Homework")
+        viewModel.updateScheduleDraft { draft -> draft.days.fold(draft) { d, day -> d.toggleDay(day) } }
+        assertFalse(viewModel.scheduleDraft.value!!.canSave)
+        viewModel.saveSchedule {}
+        assertTrue(viewModel.schedules.value.isEmpty())
+    }
+
+    @Test
+    fun withAPinChangingOrDeletingAScheduleAsksForIt() {
+        runBlocking {
+            schedules.save(
+                org.openscreentime.schedules.AppSchedule(
+                    name = "Work",
+                    days = org.openscreentime.schedules.SchedulePreset.WorkSchool.days,
+                    window = org.openscreentime.schedules.SchedulePreset.WorkSchool.window,
+                ),
+            )
+            pinManager.setInitialPin(pin("4826"))
+        }
+        val viewModel = newViewModel()
+        viewModel.currentState()
+        val id = viewModel.schedules.value.single().id
+
+        viewModel.editSchedule(id)
+        viewModel.updateScheduleDraft { it.copy(enabled = false) }
+        viewModel.saveSchedule {}
+        viewModel.currentState()
+        assertEquals(PinFlowKind.Verify, viewModel.pinFlow.ui.value!!.kind)
+        assertTrue(viewModel.schedules.value.single().enabled)
+
+        viewModel.enterPin("4826")
+        assertFalse(viewModel.schedules.value.single().enabled)
+
+        viewModel.editSchedule(id)
+        viewModel.deleteSchedule {}
+        viewModel.currentState()
+        assertTrue(viewModel.schedules.value.isEmpty())
+    }
+
+    @Test
+    fun aScheduleBlocksItsGroupsAppsAndTheBlockScreenNamesIt() {
+        // The test clock is Thursday 12:00, during work hours.
+        runBlocking {
+            val groupId = groups.save(org.openscreentime.groups.AppGroup(name = "Social", packages = setOf("chat")))
+            schedules.save(
+                org.openscreentime.schedules.AppSchedule(
+                    name = "Work",
+                    days = org.openscreentime.schedules.SchedulePreset.WorkSchool.days,
+                    window = org.openscreentime.schedules.SchedulePreset.WorkSchool.window,
+                    groupIds = setOf(groupId),
+                ),
+            )
+        }
+        val viewModel = newViewModel()
+        viewModel.currentState()
+        var result: BlockDecision? = null
+        val job = kotlinx.coroutines.CoroutineScope(kotlinx.coroutines.Dispatchers.Main.immediate).launch {
+            viewModel.blockDecision("chat").collect { result = it }
+        }
+        shadowOf(Looper.getMainLooper()).idle()
+        job.cancel()
+        val blocked = result as BlockDecision.Blocked
+        assertEquals(org.openscreentime.blocking.BlockReason.Scheduled, blocked.reason)
+        assertEquals("Work", blocked.ruleName)
+        assertEquals(today.atTime(17, 0).atZone(zone), blocked.blockedUntil)
+
+        viewModel.openBlockScreen("chat", blocked.reason, real = true, blocked.ruleName)
+        viewModel.currentState()
+        val ui = viewModel.blockScreenUi.value!!
+        assertEquals("Work", ui.ruleName)
+        assertEquals(today.atTime(17, 0).atZone(zone), ui.blockedUntil)
     }
 }
 

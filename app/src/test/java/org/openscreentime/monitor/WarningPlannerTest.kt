@@ -4,6 +4,8 @@ import org.junit.Assert.assertEquals
 import org.junit.Assert.assertFalse
 import org.junit.Assert.assertTrue
 import org.junit.Test
+import org.openscreentime.schedules.SchedulePreset
+import org.openscreentime.schedules.AppSchedule
 import org.openscreentime.groups.DailyLimit
 import org.openscreentime.groups.AppGroup
 import org.openscreentime.downtime.DowntimeSchedule
@@ -124,6 +126,47 @@ class WarningPlannerTest {
         assertTrue(WarningPlanner.hasSomethingToWatch(true, emptyList(), DowntimeSchedule(enabled = false), listOf(social)))
         assertFalse(
             WarningPlanner.hasSomethingToWatch(true, emptyList(), DowntimeSchedule(enabled = false), listOf(social.copy(limit = null))),
+        )
+    }
+
+    // --- Schedules ---
+
+    private val bedtime = AppSchedule(
+        id = 3,
+        name = "Bedtime",
+        days = SchedulePreset.Bedtime.days,
+        window = SchedulePreset.Bedtime.window,
+        packages = setOf("video"),
+    )
+
+    private fun dueForSchedule(now: Instant, schedule: AppSchedule = bedtime, alwaysAllowed: Set<String> = emptySet()) =
+        WarningPlanner.due(
+            now, zone, emptyList(), emptyList(), DowntimeSchedule(enabled = false), { it in alwaysAllowed }, emptySet(),
+            schedules = listOf(schedule),
+        )
+
+    @Test
+    fun warnsFiveMinutesBeforeAScheduleStarts() {
+        assertTrue(dueForSchedule(at("20:54")).isEmpty())
+        assertEquals(
+            listOf(Warning.ScheduleSoon(3, "Bedtime", thursday.atTime(21, 0).atZone(zone))),
+            dueForSchedule(at("20:55")),
+        )
+    }
+
+    @Test
+    fun noScheduleWarningWhenItBlocksNothing() {
+        assertTrue(dueForSchedule(at("20:58"), alwaysAllowed = setOf("video")).isEmpty())
+        assertTrue(dueForSchedule(at("20:58"), bedtime.copy(enabled = false)).isEmpty())
+    }
+
+    @Test
+    fun aScheduleThatsOnIsSomethingToWatch() {
+        assertTrue(WarningPlanner.hasSomethingToWatch(true, emptyList(), DowntimeSchedule(enabled = false), schedules = listOf(bedtime)))
+        assertFalse(
+            WarningPlanner.hasSomethingToWatch(
+                true, emptyList(), DowntimeSchedule(enabled = false), schedules = listOf(bedtime.copy(enabled = false)),
+            ),
         )
     }
 }

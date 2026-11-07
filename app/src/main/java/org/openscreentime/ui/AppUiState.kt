@@ -36,6 +36,8 @@ data class AppUiState(
     val groupCount: Int = 0,
     /** How many groups have a shared limit. */
     val groupLimitCount: Int = 0,
+    /** How many schedules are switched on. */
+    val scheduleOnCount: Int = 0,
 ) {
     val historyLength: HistoryLength
         get() = settings?.historyLength ?: HistoryLength.Default

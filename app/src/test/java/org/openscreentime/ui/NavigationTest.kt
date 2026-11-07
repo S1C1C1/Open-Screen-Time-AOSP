@@ -43,6 +43,7 @@ class NavigationTest {
             overrideRepository = FakeOverrideRepository(),
             deviceOwner = FakeDeviceOwner(),
             groupRepository = FakeGroupRepository(),
+            scheduleRepository = FakeScheduleRepository(),
             clock = Clock.fixed(SampleUsage.today.atTime(12, 0).toInstant(ZoneOffset.UTC), ZoneOffset.UTC),
             firstDayOfWeek = SampleUsage.firstDayOfWeek,
             ioDispatcher = kotlinx.coroutines.Dispatchers.Unconfined,
@@ -154,5 +155,27 @@ class NavigationTest {
         composeRule.onNodeWithText("2 apps · 1 hr a day").assertIsDisplayed()
         composeRule.onNodeWithContentDescription("Back").performClick()
         composeRule.onNodeWithText("1 group").performScrollTo().assertIsDisplayed()
+    }
+
+    @Test
+    fun addTheBedtimePresetForAnApp() {
+        startApp()
+        composeRule.onNodeWithText("App schedules").performScrollTo().performClick()
+        composeRule.onNodeWithText("Set a PIN so only you can change these schedules.").assertIsDisplayed()
+
+        composeRule.onNodeWithText("Bedtime").performClick()
+        composeRule.onNodeWithText("Ends (next day)").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Choose apps and groups").performScrollTo().performClick()
+        composeRule.onNodeWithText("Video").performClick()
+        composeRule.onNodeWithText("Done").performClick()
+        composeRule.onNodeWithContentDescription("Remove Video").performScrollTo().assertIsDisplayed()
+        composeRule.onNodeWithText("Save").performClick()
+
+        // Back on the list: the preset is now a saved schedule, so it's no longer offered.
+        composeRule.onNodeWithText("Every day, 9:00", substring = true).assertIsDisplayed()
+        composeRule.onNodeWithText("Presets").assertIsDisplayed()
+        composeRule.onNodeWithText("Work or school").assertIsDisplayed()
+        composeRule.onNodeWithContentDescription("Back").performClick()
+        composeRule.onNodeWithText("1 on").performScrollTo().assertIsDisplayed()
     }
 }

@@ -44,6 +44,9 @@ import org.openscreentime.ui.groups.GroupAppPickerScreen
 import org.openscreentime.ui.groups.GroupEditorScreen
 import org.openscreentime.ui.groups.GroupListScreen
 import org.openscreentime.ui.home.HomeScreen
+import org.openscreentime.ui.schedules.ScheduleEditorScreen
+import org.openscreentime.ui.schedules.ScheduleListScreen
+import org.openscreentime.ui.schedules.ScheduleTargetPickerScreen
 import org.openscreentime.ui.limits.AppPickerScreen
 import org.openscreentime.ui.limits.LimitEditorScreen
 import org.openscreentime.ui.limits.LimitListScreen
@@ -134,6 +137,7 @@ private fun MainNavigation(viewModel: MainViewModel, state: AppUiState) {
             val downtime by viewModel.downtime.collectAsStateWithLifecycle()
             val enforcement by viewModel.enforcementMode.collectAsStateWithLifecycle()
             val restrictions by viewModel.restrictions.collectAsStateWithLifecycle()
+            val schedules by viewModel.schedules.collectAsStateWithLifecycle()
             val context = LocalContext.current
             var notificationsAllowed by remember { mutableStateOf(notificationsAllowed(context)) }
             val askForNotifications = rememberLauncherForActivityResult(ActivityResultContracts.RequestPermission()) {
@@ -152,7 +156,7 @@ private fun MainNavigation(viewModel: MainViewModel, state: AppUiState) {
                 onRestrictionsClick = { navController.navigate(Routes.RESTRICTIONS) },
                 // Warnings only matter once there's a limit or downtime to warn about.
                 showNotificationPrompt = !notificationsAllowed &&
-                    (state.limitCount > 0 || state.groupLimitCount > 0 || downtime.schedule.enabled),
+                    (state.limitCount > 0 || state.groupLimitCount > 0 || state.scheduleOnCount > 0 || downtime.schedule.enabled),
                 onAllowNotifications = { askForNotifications.launch(Manifest.permission.POST_NOTIFICATIONS) },
                 onBlockingClick = { navController.navigate(Routes.BLOCKING) },
                 onLimitModeChange = viewModel::setLimitMode,
@@ -171,6 +175,62 @@ private fun MainNavigation(viewModel: MainViewModel, state: AppUiState) {
                 onLimitsClick = { navController.navigate(Routes.LIMITS) },
                 groupCount = state.groupCount,
                 onGroupsClick = { navController.navigate(Routes.GROUPS) },
+                scheduleCount = schedules.size,
+                scheduleOnCount = state.scheduleOnCount,
+                onSchedulesClick = { navController.navigate(Routes.SCHEDULES) },
+            )
+        }
+        composable(Routes.SCHEDULES) {
+            val schedules by viewModel.schedules.collectAsStateWithLifecycle()
+            ScheduleListScreen(
+                schedules = schedules,
+                daysInOrder = viewModel.daysInOrder,
+                pinSet = state.pinSet,
+                onBack = { navController.popBackStack() },
+                onScheduleClick = { id ->
+                    viewModel.editSchedule(id)
+                    navController.navigate(Routes.SCHEDULE_EDITOR)
+                },
+                onNewSchedule = {
+                    viewModel.startNewSchedule()
+                    navController.navigate(Routes.SCHEDULE_EDITOR)
+                },
+                onPresetClick = { preset, name ->
+                    viewModel.startNewSchedule(preset, name)
+                    navController.navigate(Routes.SCHEDULE_EDITOR)
+                },
+                onSetPinClick = viewModel::startPinSetup,
+            )
+        }
+        composable(Routes.SCHEDULE_EDITOR) {
+            val draft by viewModel.scheduleDraft.collectAsStateWithLifecycle()
+            val groups by viewModel.groups.collectAsStateWithLifecycle()
+            draft?.let { current ->
+                ScheduleEditorScreen(
+                    draft = current,
+                    daysInOrder = viewModel.daysInOrder,
+                    groups = groups,
+                    labelFor = viewModel::labelFor,
+                    onChange = viewModel::updateScheduleDraft,
+                    onChooseTargets = { navController.navigate(Routes.SCHEDULE_TARGETS) },
+                    onBack = { navController.popBackStack() },
+                    onSave = { viewModel.saveSchedule { navController.popBackStack() } },
+                    onDelete = { viewModel.deleteSchedule { navController.popBackStack() } },
+                )
+            }
+        }
+        composable(Routes.SCHEDULE_TARGETS) {
+            val draft by viewModel.scheduleDraft.collectAsStateWithLifecycle()
+            val groups by viewModel.groups.collectAsStateWithLifecycle()
+            val apps by remember { viewModel.appsForGroups() }.collectAsStateWithLifecycle(initialValue = emptyList())
+            ScheduleTargetPickerScreen(
+                groups = groups,
+                apps = apps,
+                selectedGroups = draft?.groupIds.orEmpty(),
+                selectedApps = draft?.packages.orEmpty(),
+                onToggleGroup = { id -> viewModel.updateScheduleDraft { it.toggleGroup(id) } },
+                onToggleApp = { pkg -> viewModel.updateScheduleDraft { it.toggleApp(pkg) } },
+                onDone = { navController.popBackStack() },
             )
         }
         composable(Routes.GROUPS) {
@@ -338,12 +398,12 @@ private fun MainNavigation(viewModel: MainViewModel, state: AppUiState) {
                 blockingActive = enforcement == EnforcementMode.DeviceOwner,
                 onGetMoreTime = {
                     val blocked = decision as? BlockDecision.Blocked
-                    viewModel.openBlockScreen(packageName, blocked?.reason ?: BlockReason.LimitReached, real = true, blocked?.groupName)
+                    viewModel.openBlockScreen(packageName, blocked?.reason ?: BlockReason.LimitReached, real = true, blocked?.ruleName)
                 },
                 decision = decision,
                 onPreviewBlock = {
                     val blocked = decision as? BlockDecision.Blocked
-                    viewModel.previewBlockScreen(packageName, blocked?.reason ?: BlockReason.LimitReached, blocked?.groupName)
+                    viewModel.previewBlockScreen(packageName, blocked?.reason ?: BlockReason.LimitReached, blocked?.ruleName)
                 },
                 detail = detail,
                 onBack = { navController.popBackStack() },
@@ -369,6 +429,9 @@ private object Routes {
     const val GROUPS = "groups"
     const val GROUP_EDITOR = "groups/edit"
     const val GROUP_APPS = "groups/edit/apps"
+    const val SCHEDULES = "schedules"
+    const val SCHEDULE_EDITOR = "schedules/edit"
+    const val SCHEDULE_TARGETS = "schedules/edit/targets"
     const val ADD_ALLOWED = "allowed/add"
     const val ADD_LIMIT = "limits/add"
     const val LIMIT_EDITOR = "limits/edit/{$ARG_PACKAGE}"
