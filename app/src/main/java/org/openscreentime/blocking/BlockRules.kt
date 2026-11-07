@@ -30,13 +30,38 @@ enum class LimitMode {
 
 enum class BlockReason { LimitReached, Downtime, Scheduled }
 
+/**
+ * Which block extra time is for. Extra time only lifts the block it was
+ * given for: unlocking an app after its limit doesn't also let it through
+ * downtime or a schedule later that day.
+ */
+object BlockKeys {
+    const val LIMIT = "limit"
+    const val DOWNTIME = "downtime"
+
+    /** Extra time saved before blocks had keys; it still lifts every block until it runs out. */
+    const val ANY = "*"
+
+    fun schedule(scheduleId: Long) = "schedule:$scheduleId"
+
+    /** The key for a block of [reason]. Schedules need their id, so this is only a fallback for them. */
+    fun forReason(reason: BlockReason): String = when (reason) {
+        BlockReason.LimitReached -> LIMIT
+        BlockReason.Downtime -> DOWNTIME
+        BlockReason.Scheduled -> ANY
+    }
+}
+
 /** Extra time given to one app: by the PIN, "one more minute", or ignoring a reminder. */
 data class AppOverride(
-    /** The app may be used until this moment, whatever the limits or downtime. */
-    val allowedUntil: Instant? = null,
+    /** For each block (see [BlockKeys]), until when the app may be used despite it. */
+    val allowedUntil: Map<String, Instant> = emptyMap(),
     /** The day "one more minute" was last used for this app. */
     val graceUsedOn: LocalDate? = null,
-)
+) {
+    /** Until when the block with [key] is lifted, or null. */
+    fun untilFor(key: String): Instant? = listOfNotNull(allowedUntil[key], allowedUntil[BlockKeys.ANY]).maxOrNull()
+}
 
 sealed interface BlockDecision {
     data object Allowed : BlockDecision
@@ -57,6 +82,8 @@ sealed interface BlockDecision {
          * shared limit was reached, or the schedule that's on.
          */
         val ruleName: String? = null,
+        /** Which block this is, so extra time lifts only this one (see [BlockKeys]). */
+        val overrideKey: String = BlockKeys.forReason(reason),
     ) : BlockDecision
 }
 
@@ -90,31 +117,36 @@ object BlockRules {
         val today = now.atZone(zone).toLocalDate()
         val graceAvailable = mode == LimitMode.Grace && override.graceUsedOn != today
 
-        // Downtime comes first: it applies even to apps under their limit.
-        // Then schedules, then limits. If several schedules are on, the app
-        // stays blocked until the last of them ends.
-        val schedule = schedules.maxByOrNull { it.end.toInstant() }
-        val blocked = when (val status = downtime.status(now, zone)) {
-            is DowntimeStatus.ActiveUntil -> BlockDecision.Blocked(BlockReason.Downtime, status.end, graceAvailable)
-            else -> if (schedule != null) {
-                BlockDecision.Blocked(BlockReason.Scheduled, schedule.end, graceAvailable, schedule.name)
-            } else {
-                // The app's own limit or any of its groups' shared limits:
-                // whichever is reached first blocks it until midnight.
-                val midnight = today.plusDays(1).atStartOfDay(zone)
-                val reachedGroup = groups.firstOrNull { it.isReached(today) }
-                when {
-                    limit != null && limit.isReached(today, usedToday) ->
-                        BlockDecision.Blocked(BlockReason.LimitReached, midnight, graceAvailable)
-                    reachedGroup != null ->
-                        BlockDecision.Blocked(BlockReason.LimitReached, midnight, graceAvailable, reachedGroup.group.name)
-                    else -> null
-                }
+        // Every block that applies right now, in the order they're shown:
+        // downtime first (it applies even to apps under their limit), then
+        // schedules (the one ending last first), then limits.
+        val blocks = buildList {
+            val status = downtime.status(now, zone)
+            if (status is DowntimeStatus.ActiveUntil) add(BlockDecision.Blocked(BlockReason.Downtime, status.end, graceAvailable))
+            schedules.sortedByDescending { it.end.toInstant() }.forEach { schedule ->
+                add(
+                    BlockDecision.Blocked(
+                        BlockReason.Scheduled, schedule.end, graceAvailable, schedule.name, BlockKeys.schedule(schedule.id),
+                    ),
+                )
             }
-        } ?: return BlockDecision.Allowed
+            // The app's own limit or any of its groups' shared limits block it until midnight.
+            val midnight = today.plusDays(1).atStartOfDay(zone)
+            val reachedGroup = groups.firstOrNull { it.isReached(today) }
+            when {
+                limit != null && limit.isReached(today, usedToday) ->
+                    add(BlockDecision.Blocked(BlockReason.LimitReached, midnight, graceAvailable))
+                reachedGroup != null ->
+                    add(BlockDecision.Blocked(BlockReason.LimitReached, midnight, graceAvailable, reachedGroup.group.name))
+            }
+        }
+        if (blocks.isEmpty()) return BlockDecision.Allowed
 
-        val until = override.allowedUntil
-        return if (until != null && now.isBefore(until)) BlockDecision.AllowedUntil(until) else blocked
+        // Extra time lifts only the block it was given for; any other block still applies.
+        fun lifted(block: BlockDecision.Blocked) = override.untilFor(block.overrideKey)?.isAfter(now) == true
+        blocks.firstOrNull { !lifted(it) }?.let { return it }
+        // Every block is lifted: allowed until the first of those lifts runs out.
+        return BlockDecision.AllowedUntil(blocks.minOf { override.untilFor(it.overrideKey)!! })
     }
 
     /** When a PIN unlock of [duration] ends, for an app blocked as in [blocked]. */

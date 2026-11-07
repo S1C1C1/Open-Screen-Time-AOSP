@@ -47,7 +47,7 @@ class AlwaysAllowedPolicy(
     private val systemApps: SystemApps,
     private val ownPackage: String,
     private val homeScreenPackages: () -> Set<String>,
-    private val assistiveApps: AssistiveApps = AssistiveApps { emptySet() },
+    private val assistiveApps: AssistiveApps = AssistiveApps.None,
 ) {
     /** The list shown to the user, in a fixed order: Phone, Emergency, Settings, then added apps. */
     fun listed(config: AlwaysAllowedConfig): List<AllowedApp> {
@@ -62,11 +62,25 @@ class AlwaysAllowedPolicy(
         return result
     }
 
-    fun isAlwaysAllowed(packageName: String, config: AlwaysAllowedConfig): Boolean =
-        packageName == ownPackage ||
-            packageName in homeScreenPackages() ||
-            packageName in assistiveApps.packages() ||
-            listed(config).any { it.packageName == packageName }
+    fun isAlwaysAllowed(packageName: String, config: AlwaysAllowedConfig): Boolean = packageName in snapshot(config)
+
+    /**
+     * Every always allowed app, worked out once. Checking many apps against
+     * this is much cheaper than [isAlwaysAllowed] for each, which asks the
+     * system about home screens, keyboards and system apps every time.
+     */
+    fun snapshot(config: AlwaysAllowedConfig): Set<String> =
+        setOf(ownPackage) +
+            homeScreenPackages() +
+            assistiveApps.alwaysProtected() +
+            listed(config).map { it.packageName }
+
+    /**
+     * Apps never paused while the phone starts: the default always allowed
+     * apps (the user's own list can't be read before the first unlock) plus
+     * every switched-on keyboard and accessibility service.
+     */
+    fun protectedAtStartup(): Set<String> = snapshot(AlwaysAllowedConfig()) + assistiveApps.protectedAtStartup()
 
     /** The config after removing [app]. Emergency calling can't be removed, so it is ignored. */
     fun remove(app: AllowedApp, config: AlwaysAllowedConfig): AlwaysAllowedConfig = when (app.role) {

@@ -127,7 +127,9 @@ class MonitorService : Service() {
         val today = LocalDate.now(clock)
         val hasAccess = container.usageAccessChecker.hasUsageAccess()
         val allowedConfig = container.alwaysAllowedRepository.config.first()
-        val isAllowed = { pkg: String -> container.alwaysAllowedPolicy.isAlwaysAllowed(pkg, allowedConfig) }
+        // Worked out once per check rather than once per app, to save battery.
+        val allowedApps = container.alwaysAllowedPolicy.snapshot(allowedConfig)
+        val isAllowed = { pkg: String -> pkg in allowedApps }
 
         val usageToday = if (hasAccess) {
             container.usageRepository.syncToday()
@@ -205,7 +207,7 @@ class MonitorService : Service() {
         if (previous != null && previous.first == request && Duration.between(previous.second, now) < SHOW_AGAIN_AFTER) return
         lastShown = request to now
         // Allowed from the background because this app is the device owner.
-        startActivity(BlockActivity.intent(this, request.packageName, request.reason, request.ruleName))
+        startActivity(BlockActivity.intent(this, request.packageName, request.reason, request.ruleName, request.overrideKey))
     }
 
     private suspend fun awaitScreenOn() = suspendCancellableCoroutine { continuation ->

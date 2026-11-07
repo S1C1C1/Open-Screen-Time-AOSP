@@ -645,7 +645,7 @@ class MainViewModelTest {
         viewModel.blockOneMoreMinute()
         viewModel.currentState()
         assertNull(viewModel.blockScreenUi.value)
-        assertEquals(noon.plusSeconds(60), overrides.saved.value["video"]!!.allowedUntil)
+        assertEquals(mapOf(org.openscreentime.blocking.BlockKeys.LIMIT to noon.plusSeconds(60)), overrides.saved.value["video"]!!.allowedUntil)
         assertEquals(today, overrides.saved.value["video"]!!.graceUsedOn)
 
         viewModel.preview()
@@ -659,7 +659,7 @@ class MainViewModelTest {
         viewModel.preview()
         viewModel.blockIgnore()
         viewModel.currentState()
-        assertEquals(noon.plusSeconds(15 * 60), overrides.saved.value["video"]!!.allowedUntil)
+        assertEquals(mapOf(org.openscreentime.blocking.BlockKeys.LIMIT to noon.plusSeconds(15 * 60)), overrides.saved.value["video"]!!.allowedUntil)
     }
 
     @Test
@@ -676,7 +676,7 @@ class MainViewModelTest {
 
         viewModel.blockUnlock(UnlockDuration.OneHour)
         viewModel.currentState()
-        assertEquals(noon.plusSeconds(3600), overrides.saved.value["video"]!!.allowedUntil)
+        assertEquals(mapOf(org.openscreentime.blocking.BlockKeys.LIMIT to noon.plusSeconds(3600)), overrides.saved.value["video"]!!.allowedUntil)
         assertNull(viewModel.blockScreenUi.value)
     }
 
@@ -711,7 +711,7 @@ class MainViewModelTest {
         viewModel.currentState()
         viewModel.blockUnlock(UnlockDuration.RestOfDay)
         viewModel.currentState()
-        assertEquals(today.plusDays(1).atStartOfDay(zone).toInstant(), overrides.saved.value["video"]!!.allowedUntil)
+        assertEquals(mapOf(org.openscreentime.blocking.BlockKeys.LIMIT to today.plusDays(1).atStartOfDay(zone).toInstant()), overrides.saved.value["video"]!!.allowedUntil)
 
         viewModel.preview(BlockReason.Downtime, pkg = "maps")
         assertEquals(today.plusDays(1).atTime(7, 0).atZone(zone), viewModel.blockScreenUi.value!!.blockedUntil)
@@ -719,7 +719,7 @@ class MainViewModelTest {
         viewModel.currentState()
         viewModel.blockUnlock(UnlockDuration.RestOfDay)
         viewModel.currentState()
-        assertEquals(today.plusDays(1).atTime(7, 0).atZone(zone).toInstant(), overrides.saved.value["maps"]!!.allowedUntil)
+        assertEquals(mapOf(org.openscreentime.blocking.BlockKeys.DOWNTIME to today.plusDays(1).atTime(7, 0).atZone(zone).toInstant()), overrides.saved.value["maps"]!!.allowedUntil)
     }
 
     @Test
@@ -757,7 +757,7 @@ class MainViewModelTest {
         }
 
         assertTrue(decision() is BlockDecision.Blocked)
-        runBlocking { overrides.allowUntil("video", noon.plusSeconds(600)) }
+        runBlocking { overrides.allowUntil("video", org.openscreentime.blocking.BlockKeys.LIMIT, noon.plusSeconds(600)) }
         assertEquals(BlockDecision.AllowedUntil(noon.plusSeconds(600)), decision())
     }
 
@@ -1142,6 +1142,53 @@ class MainViewModelTest {
         assertTrue(apps.first { it.packageName == "chat" }.scheduledNow)
         assertFalse(apps.first { it.packageName == "mail" }.scheduledNow)
         assertEquals(listOf("Work"), viewModel.activeSchedules.value.map { it.name })
+    }
+    // --- Fixes from the code review ---
+
+    @Test
+    fun settingAPinSwitchesOnTheDateAndTimeRestriction() {
+        val viewModel = newViewModel()
+        viewModel.currentState()
+        assertFalse(org.openscreentime.restrictions.Restriction.DateTime in runBlocking { restrictionsRepository.state.first() }.enabled)
+
+        runBlocking { pinManager.setInitialPin(pin("4826")) }
+        viewModel.currentState()
+        assertTrue(org.openscreentime.restrictions.Restriction.DateTime in runBlocking { restrictionsRepository.state.first() }.enabled)
+    }
+
+    @Test
+    fun anExistingPinDoesNotSwitchTheRestrictionBackOn() {
+        // A parent who switched it off with the PIN keeps it off.
+        runBlocking { pinManager.setInitialPin(pin("4826")) }
+        newViewModel().currentState()
+        assertTrue(runBlocking { restrictionsRepository.state.first() }.enabled.isEmpty())
+    }
+
+    @Test
+    fun extraTimeForAScheduleIsSavedForThatScheduleOnly() {
+        runBlocking {
+            schedules.save(
+                org.openscreentime.schedules.AppSchedule(
+                    name = "Work",
+                    days = org.openscreentime.schedules.SchedulePreset.WorkSchool.days,
+                    window = org.openscreentime.schedules.SchedulePreset.WorkSchool.window,
+                    packages = setOf("chat"),
+                ),
+            )
+        }
+        val viewModel = newViewModel()
+        viewModel.currentState()
+        val id = viewModel.schedules.value.single().id
+        viewModel.openBlockScreen("chat", BlockReason.Scheduled, real = true, ruleName = "Work")
+        viewModel.currentState()
+        viewModel.blockEnterPin()
+        viewModel.currentState()
+        viewModel.blockUnlock(UnlockDuration.FifteenMinutes)
+        viewModel.currentState()
+        assertEquals(
+            mapOf(org.openscreentime.blocking.BlockKeys.schedule(id) to noon.plusSeconds(15 * 60)),
+            overrides.saved.value["chat"]!!.allowedUntil,
+        )
     }
 }
 

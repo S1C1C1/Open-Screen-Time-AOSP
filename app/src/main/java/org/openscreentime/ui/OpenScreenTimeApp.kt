@@ -401,12 +401,23 @@ private fun MainNavigation(viewModel: MainViewModel, state: AppUiState) {
                 blockingActive = enforcement == EnforcementMode.DeviceOwner,
                 onGetMoreTime = {
                     val blocked = decision as? BlockDecision.Blocked
-                    viewModel.openBlockScreen(packageName, blocked?.reason ?: BlockReason.LimitReached, real = true, blocked?.ruleName)
+                    viewModel.openBlockScreen(
+                        packageName,
+                        blocked?.reason ?: BlockReason.LimitReached,
+                        real = true,
+                        ruleName = blocked?.ruleName,
+                        overrideKey = blocked?.overrideKey,
+                    )
                 },
                 decision = decision,
                 onPreviewBlock = {
                     val blocked = decision as? BlockDecision.Blocked
-                    viewModel.previewBlockScreen(packageName, blocked?.reason ?: BlockReason.LimitReached, blocked?.ruleName)
+                    viewModel.previewBlockScreen(
+                        packageName,
+                        blocked?.reason ?: BlockReason.LimitReached,
+                        ruleName = blocked?.ruleName,
+                        overrideKey = blocked?.overrideKey,
+                    )
                 },
                 detail = detail,
                 onBack = { navController.popBackStack() },

@@ -14,10 +14,10 @@ class FakeOverrideRepository : OverrideRepository {
 
     override fun overrideFor(packageName: String): Flow<AppOverride> = saved.map { it[packageName] ?: AppOverride() }
 
-    override suspend fun allowUntil(packageName: String, until: Instant) {
+    override suspend fun allowUntil(packageName: String, blockKey: String, until: Instant) {
         val current = saved.value[packageName] ?: AppOverride()
-        val kept = current.allowedUntil?.takeIf { it.isAfter(until) } ?: until
-        saved.value = saved.value + (packageName to current.copy(allowedUntil = kept))
+        val kept = current.allowedUntil[blockKey]?.takeIf { it.isAfter(until) } ?: until
+        saved.value = saved.value + (packageName to current.copy(allowedUntil = current.allowedUntil + (blockKey to kept)))
     }
 
     override suspend fun markGraceUsed(packageName: String, day: LocalDate) {

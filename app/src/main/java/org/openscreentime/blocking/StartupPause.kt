@@ -22,11 +22,11 @@ class StartupPause(
     private val isDeviceOwner: () -> Boolean,
     private val launchablePackages: () -> Set<String>,
     /** Apps that must never be paused: phone, emergency calling, Settings, home screen, keyboards, accessibility. */
-    private val isProtected: (String) -> Boolean,
+    private val protectedPackages: () -> Set<String>,
 ) {
     /** Apps to pause as the phone starts. Empty unless this app is the device owner. */
     fun appsToPause(): Set<String> =
-        if (isDeviceOwner()) launchablePackages().filterNot(isProtected).toSet() else emptySet()
+        if (isDeviceOwner()) launchablePackages() - protectedPackages() else emptySet()
 
     /**
      * Apps that may have been paused at startup, to hand over to normal
