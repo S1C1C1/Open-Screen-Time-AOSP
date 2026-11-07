@@ -27,9 +27,12 @@ import org.junit.Test
 import org.junit.rules.TemporaryFolder
 import org.junit.runner.RunWith
 import org.robolectric.Shadows.shadowOf
+import org.robolectric.annotation.Config
 import java.time.Duration
 
+// The start receiver uses the app's shared objects, so the real app setup is needed.
 @RunWith(AndroidJUnit4::class)
+@Config(application = org.openscreentime.TestScreenTimeApplication::class)
 class MonitorPartsTest {
 
     @get:Rule
@@ -75,6 +78,22 @@ class MonitorPartsTest {
             StartReceiver().onReceive(context, Intent(action))
             assertEquals(MonitorService::class.java.name, shadowOf(context).nextStartedService.component?.className)
         }
+    }
+
+    @Test
+    fun lockedBootDoesNotStartTheServiceAndPausesNothingWithoutDeviceOwner() {
+        StartReceiver().onReceive(context, Intent(Intent.ACTION_LOCKED_BOOT_COMPLETED))
+        assertNull(shadowOf(context).nextStartedService)
+    }
+
+    @Test
+    fun startReceiverRunsBeforeTheFirstUnlock() {
+        val info = context.packageManager.getReceiverInfo(
+            ComponentName(context, StartReceiver::class.java),
+            PackageManager.ComponentInfoFlags.of(0),
+        )
+        // Needed to receive LOCKED_BOOT_COMPLETED; nothing else in the app runs before the unlock.
+        assertTrue(info.directBootAware)
     }
 
     @Test

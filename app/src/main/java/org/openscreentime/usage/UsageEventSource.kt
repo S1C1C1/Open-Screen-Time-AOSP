@@ -58,7 +58,14 @@ class SystemUsageEventSource(context: Context) : UsageEventSource {
 fun homeScreenPackages(packageManager: PackageManager): Set<String> {
     val homeIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
     return packageManager
-        .queryIntentActivities(homeIntent, PackageManager.ResolveInfoFlags.of(0))
+        // Include home screens that can't run before the first unlock, so the
+        // startup pause never pauses the user's chosen home screen.
+        .queryIntentActivities(
+            homeIntent,
+            PackageManager.ResolveInfoFlags.of(
+                PackageManager.MATCH_DIRECT_BOOT_AWARE.toLong() or PackageManager.MATCH_DIRECT_BOOT_UNAWARE.toLong(),
+            ),
+        )
         .mapNotNull { it.activityInfo?.packageName }
         .toSet()
 }

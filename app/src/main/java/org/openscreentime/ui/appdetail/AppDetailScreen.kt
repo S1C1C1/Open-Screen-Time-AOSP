@@ -29,7 +29,6 @@ import org.openscreentime.R
 import org.openscreentime.blocking.BlockDecision
 import org.openscreentime.blocking.BlockReason
 import org.openscreentime.ui.components.AppIcon
-import org.openscreentime.ui.components.FootnoteText
 import org.openscreentime.ui.components.SettingsCard
 import org.openscreentime.ui.components.SettingsScaffold
 import org.openscreentime.ui.components.WeekBarChart
@@ -151,7 +150,6 @@ fun AppDetailScreen(
                 }
             }
         }
-        if (detail.limit != null) FootnoteText(stringResource(R.string.app_limit_blocking_coming))
     }
 }
 

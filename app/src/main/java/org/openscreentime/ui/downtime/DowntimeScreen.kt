@@ -40,7 +40,6 @@ import org.openscreentime.R
 import org.openscreentime.downtime.DowntimeSchedule
 import org.openscreentime.downtime.DowntimeStatus
 import org.openscreentime.downtime.DowntimeWindow
-import org.openscreentime.ui.components.FootnoteText
 import org.openscreentime.ui.components.SettingsCard
 import org.openscreentime.ui.components.SettingsScaffold
 import org.openscreentime.ui.format.formatDowntimeStatus
@@ -140,7 +139,6 @@ fun DowntimeScreen(
             androidx.compose.material3.OutlinedButton(onClick = onPreviewBlock) {
                 Text(stringResource(R.string.block_preview))
             }
-            FootnoteText(stringResource(R.string.downtime_blocking_coming))
         }
     }
 

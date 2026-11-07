@@ -14,6 +14,7 @@
 - **Usage access can't be locked on.** Android doesn't let a device owner prevent someone from switching off Screen time's usage access in Settings. If it's switched off, Screen time **fails safe**: every app except always allowed ones is paused until it's switched back on. So switching it off doesn't give more time, but it does stop the phone being useful.
 - **Checks happen every few seconds, not instantly.** Usage is checked every 30 seconds while the screen is on, and more often near a limit or downtime. A warning can be up to 30 seconds late, and blocking can be a few seconds late.
 - **Nothing is checked while the screen is off.** Checking resumes the moment the screen turns on.
+- **Apps are briefly paused after every restart.** To close the gap before the rules can be read, all apps except protected ones (phone, emergency calling, Settings, home screen, keyboards, accessibility services) are paused as the phone starts, and unpaused a few seconds after the first unlock. This happens even when no rules are set.
 - **Android may stop the background service.** If the phone is very short on memory, Android can stop the tracking service. It restarts by itself, at the latest when the app is opened or the phone restarts. Apps that were already paused stay paused in the meantime.
 
 ## Blocking
