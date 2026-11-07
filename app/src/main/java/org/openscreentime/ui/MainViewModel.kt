@@ -647,8 +647,10 @@ class MainViewModel(
         val ui = blockScreen.value ?: return
         viewModelScope.launch {
             val instant = clock.instant()
-            // A preview without a particular app has nothing to save.
-            if (ui.packageName.isNotEmpty()) action(ui, instant)
+            // A preview only shows what the block screen looks like: its buttons
+            // close it without saving anything, so trying "One more minute" in a
+            // preview doesn't use up the real one or give extra time.
+            if (!ui.isPreview && ui.packageName.isNotEmpty()) action(ui, instant)
             blockScreen.value = null
             now.value = clock.instant()
             requestEnforcementCheck()

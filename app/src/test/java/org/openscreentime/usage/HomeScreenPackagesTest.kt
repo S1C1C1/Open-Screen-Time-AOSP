@@ -29,7 +29,21 @@ class HomeScreenPackagesTest {
 
         assertEquals(
             setOf("com.example.launcher", "com.example.otherlauncher"),
-            homeScreenPackages(packageManager),
+            allHomeScreenPackages(packageManager),
         )
+    }
+
+    @Test
+    fun onlyTheHomeScreenInUseIsProtected() {
+        val all = setOf("com.example.launcher", "com.example.otherlauncher")
+        assertEquals(setOf("com.example.launcher"), homeScreensInUse(all, "com.example.launcher"))
+    }
+
+    @Test
+    fun withNoDefaultChosenEveryHomeScreenIsProtected() {
+        val all = setOf("com.example.launcher", "com.example.otherlauncher")
+        // Android answers with its chooser ("android") until a default is chosen.
+        assertEquals(all, homeScreensInUse(all, "android"))
+        assertEquals(all, homeScreensInUse(all, null))
     }
 }

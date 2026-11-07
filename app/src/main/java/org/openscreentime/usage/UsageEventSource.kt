@@ -52,11 +52,36 @@ class SystemUsageEventSource(context: Context) : UsageEventSource {
 }
 
 /**
- * Packages whose time isn't counted: every installed home screen app
- * (launcher). Visible to this app through the <queries> entry in the manifest.
+ * The home screen app (launcher) in use. Its time isn't counted and it's
+ * never blocked. Other apps that can act as a home screen are treated
+ * like any other app, so a second launcher-style app can't escape limits.
+ *
+ * Until the user has chosen a default home screen, Android has no single
+ * answer, so every home screen app is returned and none can be blocked.
  */
 fun homeScreenPackages(packageManager: PackageManager): Set<String> {
-    val homeIntent = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+    val all = allHomeScreenPackages(packageManager)
+    val current = packageManager
+        .resolveActivity(HOME_INTENT, PackageManager.ResolveInfoFlags.of(PackageManager.MATCH_DEFAULT_ONLY.toLong()))
+        ?.activityInfo?.packageName
+    return homeScreensInUse(all, current)
+}
+
+/**
+ * [current] if it's one of [all]; otherwise (no default chosen, so Android
+ * answered with its chooser, which isn't a home screen app) all of them.
+ */
+fun homeScreensInUse(all: Set<String>, current: String?): Set<String> =
+    if (current != null && current in all) setOf(current) else all
+
+private val HOME_INTENT = Intent(Intent.ACTION_MAIN).addCategory(Intent.CATEGORY_HOME)
+
+/**
+ * Every installed home screen app. Visible to this app through the
+ * <queries> entry in the manifest.
+ */
+fun allHomeScreenPackages(packageManager: PackageManager): Set<String> {
+    val homeIntent = HOME_INTENT
     return packageManager
         // Include home screens that can't run before the first unlock, so the
         // startup pause never pauses the user's chosen home screen.
