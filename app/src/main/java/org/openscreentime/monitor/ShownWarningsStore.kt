@@ -39,6 +39,7 @@ class DataStoreShownWarningsStore(private val dataStore: DataStore<Preferences>)
 /** The day (since 1970) a warning key belongs to, from the number at its end. */
 internal fun dayOf(key: String): Long? {
     val number = key.substringAfterLast(':').toLongOrNull() ?: return null
-    // Limit keys end in a day; downtime keys end in seconds since 1970.
-    return if (key.startsWith("downtime:")) Math.floorDiv(number, 86_400L) else number
+    // Limit and group keys end in a day; downtime and schedule keys end in seconds since 1970.
+    val inSeconds = key.startsWith("downtime:") || key.startsWith("schedule:")
+    return if (inSeconds) Math.floorDiv(number, 86_400L) else number
 }

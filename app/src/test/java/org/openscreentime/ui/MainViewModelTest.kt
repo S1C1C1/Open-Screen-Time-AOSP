@@ -30,6 +30,7 @@ import org.openscreentime.ui.pin.PinStep
 import org.openscreentime.usage.AppUsageTime
 import org.robolectric.Shadows.shadowOf
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.flow.emitAll
 import java.time.Clock
 import java.time.DayOfWeek
 import java.time.Duration
@@ -55,6 +56,9 @@ class MainViewModelTest {
     private val overrides = FakeOverrideRepository()
     private val groups = FakeGroupRepository()
     private val schedules = FakeScheduleRepository()
+
+    /** Replaces [schedules] for one test. */
+    private var scheduleRepositoryForTest: org.openscreentime.schedules.ScheduleRepository? = null
     private val deviceOwner = FakeDeviceOwner()
     private val blocker = RecordingAppBlocker()
     private var enforcementChecks = 0
@@ -82,7 +86,7 @@ class MainViewModelTest {
         overrideRepository = overrides,
         deviceOwner = deviceOwner,
         groupRepository = groups,
-        scheduleRepository = schedules,
+        scheduleRepository = scheduleRepositoryForTest ?: schedules,
         appBlocker = blocker,
         requestEnforcementCheck = { enforcementChecks++ },
         restrictionsRepository = restrictionsRepository,
@@ -1205,6 +1209,40 @@ class MainViewModelTest {
             mapOf(org.openscreentime.blocking.BlockKeys.schedule(id) to noon.plusSeconds(15 * 60)),
             overrides.saved.value["chat"]!!.allowedUntil,
         )
+    }
+    // --- Second review ---
+
+    @Test
+    fun blockScreenOpenedStraightAwayStillShowsWhenTheScheduleEnds() {
+        // The block screen over an app opens in a new screen, before the list of
+        // schedules has loaded; it must still use the schedule's own end time.
+        val id = runBlocking {
+            schedules.save(
+                org.openscreentime.schedules.AppSchedule(
+                    name = "Work",
+                    days = org.openscreentime.schedules.SchedulePreset.WorkSchool.days,
+                    window = org.openscreentime.schedules.SchedulePreset.WorkSchool.window,
+                    packages = setOf("chat"),
+                ),
+            )
+        }
+        // Like the real database on a phone, the list takes a moment to load.
+        scheduleRepositoryForTest = object : org.openscreentime.schedules.ScheduleRepository by schedules {
+            override val schedules = kotlinx.coroutines.flow.flow {
+                kotlinx.coroutines.delay(1_000)
+                emitAll(this@MainViewModelTest.schedules.schedules)
+            }
+        }
+        val viewModel = newViewModel()
+        viewModel.openBlockScreen(
+            "chat",
+            BlockReason.Scheduled,
+            real = true,
+            ruleName = "Work",
+            overrideKey = org.openscreentime.blocking.BlockKeys.schedule(id),
+        )
+        shadowOf(Looper.getMainLooper()).idleFor(java.time.Duration.ofSeconds(2))
+        assertEquals(today.atTime(17, 0).atZone(zone), viewModel.blockScreenUi.value!!.blockedUntil)
     }
 }
 
