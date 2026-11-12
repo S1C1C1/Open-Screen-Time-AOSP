@@ -563,7 +563,13 @@ class MainViewModel(
             val pkg = packageName.orEmpty()
             val override = if (packageName == null) AppOverride() else overrideRepository.overrideFor(pkg).first()
             val mode = settingsRepository.settings.first().limitMode
-            val schedule = if (reason == BlockReason.Scheduled) scheduleFor(overrideKey, ruleName) else null
+            // Read from storage rather than the on-screen list: the block screen can
+            // open before that list has loaded, which would show the wrong end time.
+            val schedule = if (reason == BlockReason.Scheduled) {
+                scheduleFor(overrideKey, ruleName, scheduleRepository.schedules.first())
+            } else {
+                null
+            }
             val until = when (reason) {
                 BlockReason.LimitReached -> day.plusDays(1).atStartOfDay(zone)
                 BlockReason.Downtime -> downtimeEnd(instant)
@@ -585,9 +591,9 @@ class MainViewModel(
     }
 
     /** The schedule a block screen is for: by its block key, or else by name. */
-    private fun scheduleFor(overrideKey: String?, name: String?): AppSchedule? =
-        schedules.value.firstOrNull { overrideKey != null && BlockKeys.schedule(it.id) == overrideKey }
-            ?: schedules.value.firstOrNull { it.name == name }
+    private fun scheduleFor(overrideKey: String?, name: String?, all: List<AppSchedule>): AppSchedule? =
+        all.firstOrNull { overrideKey != null && BlockKeys.schedule(it.id) == overrideKey }
+            ?: all.firstOrNull { it.name == name }
 
     /** When [schedule] ends: now if it's on, otherwise at the end of its next run (for previews). */
     private fun scheduleEnd(schedule: AppSchedule, instant: java.time.Instant): java.time.ZonedDateTime? {

@@ -131,5 +131,8 @@ class MonitorPartsTest {
         assertEquals(20_397L, dayOf("limit:com.example.app:20397"))
         assertEquals(20_397L, dayOf("downtime:${20_397L * 86_400 + 75_600}"))
         assertNull(dayOf("something-else"))
+        // Group keys end in a day; schedule keys, like downtime, end in seconds.
+        assertEquals(20_397L, dayOf("group:4:20397"))
+        assertEquals(20_397L, dayOf("schedule:2:${20_397L * 86_400 + 75_600}"))
     }
 }
