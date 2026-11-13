@@ -10,7 +10,21 @@ GrapheneOS is the first target. See [SPEC.md](SPEC.md) for the full plan.
 
 All data stays on the phone. The app has no internet permission, and an automated test fails the build if one is ever added. No analytics, crash reporting, Google Play Services or other third-party services.
 
+## Download
+
+Get the latest release from the [Releases page](https://github.com/S1C1C1/Open-Screen-Time-AOSP/releases):
+
+1. On the phone, open the latest release and download the `.apk` file under **Assets**.
+2. Open it and allow installs from your browser or file manager when Android asks.
+
+Requires Android 14 or newer. Releases are signed with the project's release key, so each new release installs over the last one and keeps your settings. Each release's notes list the key's fingerprint for checking the download.
+
+To really block apps, the app must be set up as the phone's device owner: see [Testing real blocking](#testing-real-blocking).
+
 ## Getting a test build
+
+Test builds are built from every change, before it becomes a release. They're signed with a different key from releases, so a phone can't switch between the two without uninstalling (which deletes the app's data).
+
 
 Every push and pull request is built by GitHub Actions.
 
@@ -82,6 +96,47 @@ To avoid that, give GitHub one fixed **debug** key. It's only for test builds, n
 Never commit the key file. `.gitignore` already blocks `*.keystore` files.
 
 After this, the first build with the new key still needs one uninstall. Later builds install over it.
+
+## Making a release
+
+Releases are built and published by the **Release** workflow on GitHub, signed with a release key that only exists as GitHub secrets. Only a repository admin can do this.
+
+### One-time setup: the release key
+
+Do this once, on a computer with Java installed. **Keep the key and its passwords safe and backed up.** If the key is lost, future releases can't update existing installs: everyone would have to uninstall (losing their data) and install again.
+
+1. Create the key. It asks for a password (use a long one) and some name details; the alias is `release`:
+
+   ```bash
+   keytool -genkeypair -keystore open-screen-time-release.keystore -alias release -keyalg RSA -keysize 4096 -validity 10000
+   ```
+
+2. Turn it into text that GitHub can store:
+
+   ```bash
+   base64 -w0 open-screen-time-release.keystore > release.keystore.txt
+   ```
+
+   On macOS, use `base64 -i open-screen-time-release.keystore -o release.keystore.txt` instead.
+
+3. On GitHub, go to **Settings → Secrets and variables → Actions** and add four **repository secrets**:
+
+   | Name | Value |
+   |---|---|
+   | `RELEASE_KEYSTORE_BASE64` | the contents of `release.keystore.txt` |
+   | `RELEASE_KEYSTORE_PASSWORD` | the password you chose |
+   | `RELEASE_KEY_ALIAS` | `release` |
+   | `RELEASE_KEY_PASSWORD` | the same password (keytool uses one password for both unless you chose otherwise) |
+
+4. Delete `release.keystore.txt`. Move `open-screen-time-release.keystore` somewhere safe outside the repository, with a backup copy (for example a password manager or an encrypted USB drive). Never commit it: `.gitignore` already blocks `*.keystore` files.
+
+This key is separate from the test build key in [Test build signing key](#test-build-signing-key). Don't reuse one for the other.
+
+### Publishing a release
+
+1. Make sure `versionName` and `versionCode` in `app/build.gradle.kts` are set for the new release (raise both for every release after the first), and that `docs/releases/<versionName>.md` has its release notes. Merge that to `main`.
+2. On GitHub, open **Actions → Release → Run workflow**, choose the `main` branch, and run it.
+3. It runs every check, builds and signs the APK, and publishes it on the Releases page as `v<versionName>`. If a secret is missing or the version was already released, it stops and says why.
 
 ## License
 
