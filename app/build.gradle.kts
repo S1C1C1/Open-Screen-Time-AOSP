@@ -31,11 +31,25 @@ android {
                 keyPassword = "android"
             }
         }
+        // The release key is never stored in this repository. The release
+        // workflow writes it to a temporary file from GitHub secrets and
+        // passes its location and passwords here. Without them (for example
+        // on your own computer), release builds are left unsigned.
+        val releaseKeystore = System.getenv("RELEASE_KEYSTORE_PATH")
+        if (!releaseKeystore.isNullOrBlank()) {
+            create("release") {
+                storeFile = file(releaseKeystore)
+                storePassword = System.getenv("RELEASE_KEYSTORE_PASSWORD")
+                keyAlias = System.getenv("RELEASE_KEY_ALIAS")
+                keyPassword = System.getenv("RELEASE_KEY_PASSWORD")
+            }
+        }
     }
 
     buildTypes {
         release {
             isMinifyEnabled = false
+            signingConfig = signingConfigs.findByName("release")
         }
     }
 

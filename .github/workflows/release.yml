@@ -1,0 +1,125 @@
+# Publishes a release: runs every check, builds the APK signed with the
+# release key, and creates a GitHub release with it attached.
+#
+# To release: Actions tab -> "Release" -> "Run workflow". The version comes
+# from versionName in app/build.gradle.kts, and the release notes from
+# docs/releases/<version>.md. See README "Making a release".
+name: Release
+
+on:
+  workflow_dispatch:
+
+permissions:
+  # Needed to create the tag and the release.
+  contents: write
+
+# Never run two releases at once.
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - name: Check out code
+        uses: actions/checkout@v7
+
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: 21
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # Read the version and make sure this release doesn't exist yet and has notes.
+      - name: Check version and release notes
+        id: version
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          version=$(sed -n 's/^ *versionName = "\(.*\)"/\1/p' app/build.gradle.kts)
+          if [ -z "$version" ]; then
+            echo "::error::Couldn't read versionName from app/build.gradle.kts."
+            exit 1
+          fi
+          if gh release view "v$version" > /dev/null 2>&1; then
+            echo "::error::Release v$version already exists. Raise versionName and versionCode in app/build.gradle.kts first."
+            exit 1
+          fi
+          if [ ! -f "docs/releases/$version.md" ]; then
+            echo "::error::Release notes docs/releases/$version.md are missing."
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+
+      # The key and its passwords only exist as GitHub secrets. The key file is
+      # written to the runner's temporary folder, which is wiped after the job.
+      - name: Set up the release key
+        env:
+          RELEASE_KEYSTORE_BASE64: ${{ secrets.RELEASE_KEYSTORE_BASE64 }}
+          RELEASE_KEYSTORE_PASSWORD: ${{ secrets.RELEASE_KEYSTORE_PASSWORD }}
+          RELEASE_KEY_ALIAS: ${{ secrets.RELEASE_KEY_ALIAS }}
+          RELEASE_KEY_PASSWORD: ${{ secrets.RELEASE_KEY_PASSWORD }}
+        run: |
+          for name in RELEASE_KEYSTORE_BASE64 RELEASE_KEYSTORE_PASSWORD RELEASE_KEY_ALIAS RELEASE_KEY_PASSWORD; do
+            if [ -z "${!name}" ]; then
+              echo "::error::The $name secret is missing. See README \"Making a release\"."
+              exit 1
+            fi
+          done
+          echo "$RELEASE_KEYSTORE_BASE64" | base64 --decode > "$RUNNER_TEMP/release.keystore"
+          {
+            echo "RELEASE_KEYSTORE_PATH=$RUNNER_TEMP/release.keystore"
+            echo "RELEASE_KEYSTORE_PASSWORD=$RELEASE_KEYSTORE_PASSWORD"
+            echo "RELEASE_KEY_ALIAS=$RELEASE_KEY_ALIAS"
+            echo "RELEASE_KEY_PASSWORD=$RELEASE_KEY_PASSWORD"
+          } >> "$GITHUB_ENV"
+
+      # The same checks as every pull request, then the signed release APK.
+      - name: Lint, test and build
+        run: ./gradlew lintDebug lintRelease verifyRoborazziDebug assembleRelease
+
+      # Make sure the APK really is signed, and record the key's fingerprint
+      # so people can check their download came from this project.
+      - name: Verify the signature
+        id: apk
+        run: |
+          apk="open-screen-time-${{ steps.version.outputs.version }}.apk"
+          cp app/build/outputs/apk/release/app-release.apk "$apk"
+          apksigner=$(ls -d "$ANDROID_HOME"/build-tools/*/apksigner | sort -V | tail -n 1)
+          "$apksigner" verify --print-certs "$apk" | tee signature.txt
+          fingerprint=$(sed -n 's/.*certificate SHA-256 digest: //p' signature.txt | head -n 1)
+          if [ -z "$fingerprint" ]; then
+            echo "::error::The APK isn't signed."
+            exit 1
+          fi
+          echo "file=$apk" >> "$GITHUB_OUTPUT"
+          echo "fingerprint=$fingerprint" >> "$GITHUB_OUTPUT"
+          echo "sha256=$(sha256sum "$apk" | cut -d' ' -f1)" >> "$GITHUB_OUTPUT"
+
+      - name: Create the GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ steps.version.outputs.version }}
+        run: |
+          {
+            cat "docs/releases/$VERSION.md"
+            echo
+            echo "## Checking your download"
+            echo
+            echo "- File SHA-256: \`${{ steps.apk.outputs.sha256 }}\`"
+            echo "- Signing certificate SHA-256: \`${{ steps.apk.outputs.fingerprint }}\`"
+            echo
+            echo "Every release is signed with the same key, so updates install over each other."
+          } > notes.md
+          # Marked as a pre-release while the app is still being tested on phones.
+          gh release create "v$VERSION" "${{ steps.apk.outputs.file }}" \
+            --target "$GITHUB_SHA" \
+            --title "Open Screen Time $VERSION" \
+            --notes-file notes.md \
+            --prerelease
